@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -36,7 +37,9 @@ export default async function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">New Session</Button>
+                <Button asChild className="w-full">
+                  <Link href="/sessions">New Session</Link>
+                </Button>
               </CardContent>
             </Card>
 
@@ -48,7 +51,9 @@ export default async function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="outline" className="w-full">Join Session</Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/sessions">Browse Sessions</Link>
+                </Button>
               </CardContent>
             </Card>
 
@@ -60,7 +65,9 @@ export default async function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="ghost" className="w-full">View History</Button>
+                <Button asChild variant="ghost" className="w-full">
+                  <Link href="/sessions">View All Sessions</Link>
+                </Button>
               </CardContent>
             </Card>
           </div>
