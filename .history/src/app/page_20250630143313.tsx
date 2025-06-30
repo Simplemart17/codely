@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default async function Home() {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },

@@ -43,25 +43,24 @@ This roadmap provides a detailed, step-by-step implementation plan for building 
    - ✅ Development and production environment setup
    - ✅ Docker setup for local development (PostgreSQL, Redis, pgAdmin)
 
-### Week 2: Database & Authentication Setup 🚀 IN PROGRESS
+### Week 2: Database & Authentication Setup
 **Goal**: Implement user management and data persistence
-**Planned**: Week 2 | **Started**: Dec 30, 2024 | **Status**: 🚀 STARTING NOW
 
 #### Tasks:
-1. **🚀 Database Setup** - IN PROGRESS
-   - 🚀 Set up PostgreSQL with Docker (Docker compose ready)
-   - ⏳ Create database schema using Prisma
-   - ⏳ Set up migrations and seeding
+1. **Database Setup**
+   - Set up PostgreSQL with Docker
+   - Create database schema using Prisma
+   - Set up migrations and seeding
 
-2. **⏳ Supabase Integration** - PENDING
-   - ⏳ Configure Supabase project
-   - ⏳ Set up authentication providers
-   - ⏳ Implement user registration/login flows
+2. **Supabase Integration**
+   - Configure Supabase project
+   - Set up authentication providers
+   - Implement user registration/login flows
 
-3. **⏳ Basic User Management** - PENDING
-   - ⏳ Create user profile pages
-   - ⏳ Implement role-based access control
-   - ⏳ Add user preferences system
+3. **Basic User Management**
+   - Create user profile pages
+   - Implement role-based access control
+   - Add user preferences system
 
 ### Week 3: Core UI Framework
 **Goal**: Build responsive, accessible user interface

@@ -1,0 +1,120 @@
+// Prisma schema for Codely - Interactive Online Coding Education Platform
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for instructors and learners
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  role        UserRole
+  avatar      String?
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  instructedSessions Session[]           @relation("InstructorSessions")
+  participations     SessionParticipant[]
+  operations         Operation[]
+
+  @@map("users")
+}
+
+// Session model for coding sessions
+model Session {
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  instructorId   String        @map("instructor_id")
+  language       Language
+  status         SessionStatus @default(ACTIVE)
+  maxParticipants Int          @default(10) @map("max_participants")
+  isPublic       Boolean       @default(false) @map("is_public")
+  code           String        @default("")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  instructor   User                  @relation("InstructorSessions", fields: [instructorId], references: [id], onDelete: Cascade)
+  participants SessionParticipant[]
+  operations   Operation[]
+
+  @@map("sessions")
+}
+
+// Session participant model for tracking who's in each session
+model SessionParticipant {
+  id           String              @id @default(cuid())
+  userId       String              @map("user_id")
+  sessionId    String              @map("session_id")
+  role         ParticipantRole
+  joinedAt     DateTime            @default(now()) @map("joined_at")
+  isActive     Boolean             @default(true) @map("is_active")
+  cursorPosition Json?             @map("cursor_position")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@map("session_participants")
+}
+
+// Operation model for CRDT operations
+model Operation {
+  id          String        @id @default(cuid())
+  sessionId   String        @map("session_id")
+  userId      String        @map("user_id")
+  type        OperationType
+  position    Int
+  content     String?
+  length      Int?
+  timestamp   DateTime      @default(now())
+  vectorClock Json          @map("vector_clock")
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("operations")
+}
+
+// Enums
+enum UserRole {
+  INSTRUCTOR
+  LEARNER
+}
+
+enum Language {
+  JAVASCRIPT
+  PYTHON
+  CSHARP
+}
+
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum ParticipantRole {
+  INSTRUCTOR
+  LEARNER
+  OBSERVER
+}
+
+enum OperationType {
+  INSERT
+  DELETE
+  RETAIN
+}
