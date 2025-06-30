@@ -74,10 +74,10 @@ export function CodingInterface({
           createOutputLine('error', result.error || 'Execution failed'),
         ]);
       }
-    } catch (error) {
+    } catch {
       setOutput(prev => [
         ...prev,
-        createOutputLine('error', error instanceof Error ? error.message : 'Unknown error'),
+        createOutputLine('error', 'Unknown error'),
       ]);
     } finally {
       setIsRunning(false);
@@ -107,7 +107,7 @@ export function CodingInterface({
         ...prev,
         createOutputLine('info', 'Code saved successfully'),
       ]);
-    } catch (error) {
+    } catch {
       setOutput(prev => [
         ...prev,
         createOutputLine('error', 'Failed to save code'),
@@ -134,7 +134,7 @@ export function CodingInterface({
         ...prev,
         createOutputLine('info', 'Code formatted successfully'),
       ]);
-    } catch (error) {
+    } catch {
       setOutput(prev => [
         ...prev,
         createOutputLine('error', 'Failed to format code'),

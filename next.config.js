@@ -63,9 +63,6 @@ const nextConfig = {
   // React strict mode
   reactStrictMode: true,
 
-  // SWC minification
-  swcMinify: true,
-
   // Output configuration for standalone deployment
   output: 'standalone',
 };

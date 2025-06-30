@@ -5,7 +5,7 @@ import { useUserStore } from '@/stores/user-store';
 // Mock Monaco Editor
 jest.mock('@monaco-editor/react', () => ({
   __esModule: true,
-  default: ({ onChange, onMount, loading }: any) => {
+  default: ({ onChange, onMount, loading }: { onChange?: (value: string) => void; onMount?: (editor: unknown, monaco: unknown) => void; loading?: React.ReactNode }) => {
     // Simulate editor mount
     setTimeout(() => {
       if (onMount) {

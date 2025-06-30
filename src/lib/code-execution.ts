@@ -28,10 +28,10 @@ export class CodeExecutionService {
   async executeCode(
     code: string,
     language: Language,
-    options: ExecutionOptions = {}
+    _options: ExecutionOptions = {}
   ): Promise<ExecutionResult> {
     const startTime = Date.now();
-    const timeout = options.timeout || 30000; // 30 seconds default
+    // const timeout = options.timeout || 30000; // 30 seconds default (for future use)
 
     try {
       // Simulate execution delay
@@ -262,7 +262,7 @@ export class CodeExecutionService {
     // For now, we'll do basic formatting
     
     const lines = code.split('\n');
-    let formattedLines: string[] = [];
+    const formattedLines: string[] = [];
     let indentLevel = 0;
     
     for (const line of lines) {
@@ -274,7 +274,7 @@ export class CodeExecutionService {
       }
       
       // Decrease indent for closing braces/brackets
-      if (trimmedLine.startsWith('}') || trimmedLine.startsWith(']') || trimmedLine.startsWith(')'))) {
+      if (trimmedLine.startsWith('}') || trimmedLine.startsWith(']') || trimmedLine.startsWith(')')) {
         indentLevel = Math.max(0, indentLevel - 1);
       }
       

@@ -185,7 +185,7 @@ export function MonacoEditor({
           formatOnPaste: true,
           formatOnType: true,
           renderLineHighlight: 'all',
-          occurrencesHighlight: true,
+          occurrencesHighlight: 'singleFile',
           selectionHighlight: true,
           hover: {
             enabled: true,
@@ -197,10 +197,7 @@ export function MonacoEditor({
           acceptSuggestionOnEnter: 'on',
           acceptSuggestionOnCommitCharacter: true,
           snippetSuggestions: 'top',
-          wordBasedSuggestions: true,
-          semanticHighlighting: {
-            enabled: true,
-          },
+          wordBasedSuggestions: 'currentDocument',
         }}
         loading={
           <div className="flex items-center justify-center h-full">

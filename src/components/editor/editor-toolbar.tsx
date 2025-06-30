@@ -46,23 +46,24 @@ export function EditorToolbar({
     }
   };
 
-  const handleKeyboardShortcut = (action: string) => {
-    switch (action) {
-      case 'run':
-        if (showRunButton && !isRunning) {
-          onRun();
-        }
-        break;
-      case 'save':
-        if (!isSaving) {
-          onSave();
-        }
-        break;
-      case 'format':
-        onFormat();
-        break;
-    }
-  };
+  // Keyboard shortcut handler (for future use)
+  // const handleKeyboardShortcut = (action: string) => {
+  //   switch (action) {
+  //     case 'run':
+  //       if (showRunButton && !isRunning) {
+  //         onRun();
+  //       }
+  //       break;
+  //     case 'save':
+  //       if (!isSaving) {
+  //         onSave();
+  //       }
+  //       break;
+  //     case 'format':
+  //       onFormat();
+  //       break;
+  //   }
+  // };
 
   return (
     <Card className="border-b border-gray-200 rounded-none">
