@@ -5,6 +5,7 @@ export type UserRole = 'INSTRUCTOR' | 'LEARNER';
 export type Language = 'JAVASCRIPT' | 'PYTHON' | 'CSHARP';
 export type SessionStatus = 'ACTIVE' | 'PAUSED' | 'ENDED';
 export type ParticipantRole = 'INSTRUCTOR' | 'LEARNER' | 'OBSERVER';
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
 export type OperationType = 'INSERT' | 'DELETE' | 'RETAIN';
 
 export interface User {
@@ -64,6 +65,53 @@ export interface Operation {
   vectorClock: Record<string, number>;
 }
 
+export interface SessionInvitation {
+  id: string;
+  sessionId: string;
+  inviterId: string;
+  inviteeId?: string;
+  email?: string;
+  role: ParticipantRole;
+  status: InvitationStatus;
+  token: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations
+  session?: Session;
+  inviter?: User;
+  invitee?: User;
+}
+
+export interface SessionRecording {
+  id: string;
+  sessionId: string;
+  title: string;
+  description?: string;
+  duration: number; // in seconds
+  fileUrl: string;
+  thumbnailUrl?: string;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations
+  session?: Session;
+}
+
+export interface SessionSnapshot {
+  id: string;
+  sessionId: string;
+  title: string;
+  description?: string;
+  code: string;
+  metadata: Record<string, any>;
+  createdBy: string;
+  createdAt: Date;
+  // Relations
+  session?: Session;
+  creator?: User;
+}
+
 // Form types for session creation
 export interface CreateSessionData {
   title: string;
@@ -71,6 +119,97 @@ export interface CreateSessionData {
   language: Language;
   maxParticipants: number;
   isPublic: boolean;
+}
+
+// Form types for session invitations
+export interface CreateInvitationData {
+  sessionId: string;
+  email?: string;
+  userId?: string;
+  role: ParticipantRole;
+  expiresIn?: number; // hours from now, default 24
+}
+
+// Form types for session recordings
+export interface CreateRecordingData {
+  sessionId: string;
+  title: string;
+  description?: string;
+  isPublic: boolean;
+}
+
+// Form types for session snapshots
+export interface CreateSnapshotData {
+  sessionId: string;
+  title: string;
+  description?: string;
+  code: string;
+  metadata?: Record<string, any>;
+}
+
+// Analytics types
+export interface SessionAnalytics {
+  sessionId: string;
+  totalDuration: number; // in seconds
+  participantCount: number;
+  peakParticipants: number;
+  codeChanges: number;
+  executionCount: number;
+  snapshotCount: number;
+  averageEngagement: number; // percentage
+  participantAnalytics: ParticipantAnalytics[];
+  timelineEvents: TimelineEvent[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ParticipantAnalytics {
+  participantId: string;
+  userId: string;
+  userName: string;
+  role: ParticipantRole;
+  joinTime: Date;
+  leaveTime?: Date;
+  totalActiveTime: number; // in seconds
+  codeContributions: number;
+  executionCount: number;
+  engagementScore: number; // 0-100
+}
+
+export interface TimelineEvent {
+  id: string;
+  sessionId: string;
+  type: EventType;
+  userId?: string;
+  timestamp: Date;
+  data: Record<string, any>;
+}
+
+export type EventType =
+  | 'session_started'
+  | 'session_ended'
+  | 'participant_joined'
+  | 'participant_left'
+  | 'code_changed'
+  | 'code_executed'
+  | 'snapshot_created'
+  | 'recording_started'
+  | 'recording_stopped';
+
+export interface EngagementMetrics {
+  activeParticipants: number;
+  totalParticipants: number;
+  averageSessionTime: number;
+  codeChangesPerMinute: number;
+  executionsPerMinute: number;
+  engagementTrend: EngagementDataPoint[];
+}
+
+export interface EngagementDataPoint {
+  timestamp: Date;
+  activeUsers: number;
+  codeChanges: number;
+  executions: number;
 }
 
 // API response types
