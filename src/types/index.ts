@@ -1,10 +1,17 @@
 // Core type definitions for the Codely platform
 
+// Enums matching Prisma schema
+export type UserRole = 'INSTRUCTOR' | 'LEARNER';
+export type Language = 'JAVASCRIPT' | 'PYTHON' | 'CSHARP';
+export type SessionStatus = 'ACTIVE' | 'PAUSED' | 'ENDED';
+export type ParticipantRole = 'INSTRUCTOR' | 'LEARNER' | 'OBSERVER';
+export type OperationType = 'INSERT' | 'DELETE' | 'RETAIN';
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'instructor' | 'learner';
+  role: UserRole;
   avatar?: string;
   preferences: UserPreferences;
   createdAt: Date;
@@ -22,8 +29,8 @@ export interface Session {
   title: string;
   description?: string;
   instructorId: string;
-  language: 'javascript' | 'python' | 'csharp';
-  status: 'active' | 'paused' | 'ended';
+  language: Language;
+  status: SessionStatus;
   maxParticipants: number;
   isPublic: boolean;
   code: string;
@@ -33,25 +40,50 @@ export interface Session {
 }
 
 export interface SessionParticipant {
+  id: string;
   userId: string;
   sessionId: string;
-  role: 'instructor' | 'learner' | 'observer';
+  role: ParticipantRole;
   joinedAt: Date;
   isActive: boolean;
-  cursor?: {
+  cursorPosition?: {
     line: number;
     column: number;
-  };
+  } | null;
 }
 
 export interface Operation {
   id: string;
   sessionId: string;
   userId: string;
-  type: 'insert' | 'delete' | 'retain';
+  type: OperationType;
   position: number;
   content?: string;
   length?: number;
   timestamp: Date;
   vectorClock: Record<string, number>;
+}
+
+// Form types for session creation
+export interface CreateSessionData {
+  title: string;
+  description?: string;
+  language: Language;
+  maxParticipants: number;
+  isPublic: boolean;
+}
+
+// API response types
+export interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
 }
