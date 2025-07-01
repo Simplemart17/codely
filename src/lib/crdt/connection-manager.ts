@@ -67,7 +67,7 @@ export interface ConnectionEvents {
   reconnectSuccess: () => void;
   reconnectFailed: (error: Error) => void;
   error: (error: Error) => void;
-  message: (data: any) => void;
+  message: (data: unknown) => void;
   latencyUpdate: (latency: number) => void;
 }
 
@@ -86,7 +86,7 @@ export class ConnectionManager extends EventEmitter {
   private reconnectAttempts: number = 0;
   private connectionStartTime: number = 0;
   private lastPingTime: number = 0;
-  private messageQueue: any[] = [];
+  private messageQueue: unknown[] = [];
 
   constructor(config: ConnectionConfig) {
     super();
@@ -145,7 +145,7 @@ export class ConnectionManager extends EventEmitter {
   /**
    * Send message through connection
    */
-  async send(data: any): Promise<void> {
+  async send(data: unknown): Promise<void> {
     if (this.state !== ConnectionState.CONNECTED) {
       // Queue message for later sending
       this.messageQueue.push(data);
@@ -242,7 +242,7 @@ export class ConnectionManager extends EventEmitter {
           resolve();
         };
 
-        this.socket.onerror = (error) => {
+        this.socket.onerror = (_error) => {
           clearTimeout(timeout);
           reject(new Error('WebSocket connection failed'));
         };
@@ -282,7 +282,7 @@ export class ConnectionManager extends EventEmitter {
       }
     };
 
-    this.socket.onerror = (error) => {
+    this.socket.onerror = (_error) => {
       this.metrics.lastError = new Error('WebSocket error');
       this.emit('error', this.metrics.lastError);
     };
@@ -398,7 +398,7 @@ export class ConnectionManager extends EventEmitter {
             this.socket!.removeEventListener('message', handlePong);
             resolve(Date.now() - startTime);
           }
-        } catch (error) {
+        } catch {
           // Ignore parsing errors for non-pong messages
         }
       };
@@ -415,7 +415,7 @@ export class ConnectionManager extends EventEmitter {
     this.metrics.latency = latency;
     
     // Update health status based on latency
-    if (this.state === ConnectionState.CONNECTED) {
+    if (this.state === ConnectionState.CONNECTED || this.state === ConnectionState.DEGRADED) {
       if (latency > this.config.criticalThreshold) {
         this.setHealthStatus(HealthStatus.CRITICAL);
       } else if (latency > this.config.degradedThreshold) {

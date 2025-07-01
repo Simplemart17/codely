@@ -6,7 +6,7 @@
  */
 
 import type { editor } from 'monaco-editor';
-import { CollaborativeUser, CursorPosition } from './document';
+import { CollaborativeUser } from './document';
 
 /**
  * Selection types
@@ -61,7 +61,7 @@ export interface Highlight {
   message?: string;
   timestamp: number;
   persistent: boolean; // If true, highlight persists across sessions
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -113,7 +113,7 @@ export class SelectionSynchronizer {
   private decorations: Map<string, string[]> = new Map();
   private editor: editor.IStandaloneCodeEditor | null = null;
   private currentUser: CollaborativeUser | null = null;
-  private eventListeners: Map<keyof SelectionSyncEvents, Function[]> = new Map();
+  private eventListeners: Map<keyof SelectionSyncEvents, ((...args: unknown[]) => void)[]> = new Map();
   private temporarySelectionTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private readonly TEMPORARY_SELECTION_TIMEOUT = 5000; // 5 seconds
 
@@ -142,7 +142,7 @@ export class SelectionSynchronizer {
   addSelection(selection: Omit<Selection, 'id' | 'timestamp'>): Selection {
     const fullSelection: Selection = {
       ...selection,
-      id: `selection-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `selection-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       timestamp: Date.now()
     };
 
@@ -200,7 +200,7 @@ export class SelectionSynchronizer {
   addHighlight(highlight: Omit<Highlight, 'id' | 'timestamp'>): Highlight {
     const fullHighlight: Highlight = {
       ...highlight,
-      id: `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `highlight-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       timestamp: Date.now()
     };
 
@@ -231,7 +231,7 @@ export class SelectionSynchronizer {
   addAnnotation(annotation: Omit<Annotation, 'id' | 'timestamp'>): Annotation {
     const fullAnnotation: Annotation = {
       ...annotation,
-      id: `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `annotation-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       timestamp: Date.now()
     };
 
@@ -343,7 +343,7 @@ export class SelectionSynchronizer {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
-    this.eventListeners.get(event)!.push(callback as Function);
+    this.eventListeners.get(event)!.push(callback as (...args: unknown[]) => void);
   }
 
   /**
@@ -355,7 +355,7 @@ export class SelectionSynchronizer {
   ): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      const index = listeners.indexOf(callback as Function);
+      const index = listeners.indexOf(callback as (...args: unknown[]) => void);
       if (index > -1) {
         listeners.splice(index, 1);
       }
@@ -373,7 +373,7 @@ export class SelectionSynchronizer {
     if (listeners) {
       listeners.forEach(callback => {
         try {
-          (callback as any)(...args);
+          callback(...args);
         } catch (error) {
           console.error(`Error in selection sync event listener:`, error);
         }
@@ -420,6 +420,7 @@ export class SelectionSynchronizer {
     this.removeSelectionDecoration(selection.id);
 
     const decoration: editor.IModelDeltaDecoration = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       range: new (this.editor.getModel()!.constructor as any).Range(
         selection.startLine,
         selection.startColumn,
@@ -458,6 +459,7 @@ export class SelectionSynchronizer {
 
     const className = `highlight-${highlight.type}-${highlight.userId}`;
     const decoration: editor.IModelDeltaDecoration = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       range: new (this.editor.getModel()!.constructor as any).Range(
         highlight.startLine,
         highlight.startColumn,
@@ -498,6 +500,7 @@ export class SelectionSynchronizer {
     if (!this.editor) return;
 
     const decoration: editor.IModelDeltaDecoration = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       range: new (this.editor.getModel()!.constructor as any).Range(
         annotation.line,
         annotation.column,
