@@ -51,12 +51,13 @@ export interface DocumentState {
 export class CRDTDocument {
   private ydoc: Y.Doc;
   private ytext: Y.Text;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private yawareness: any;
   private provider: WebsocketProvider | null = null;
   private monacoBinding: MonacoBinding | null = null;
   private sessionId: string;
   private currentUser: CollaborativeUser;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
 
   constructor(sessionId: string, user: CollaborativeUser) {
     this.sessionId = sessionId;
@@ -178,10 +179,11 @@ export class CRDTDocument {
     const users = new Map<string, CollaborativeUser>();
 
     if (this.yawareness) {
-      this.yawareness.getStates().forEach((state: any, clientId: number) => {
-        if (state.user && state.cursor) {
-          users.set(state.user.id, state.user);
-          cursors.set(state.user.id, state.cursor);
+      this.yawareness.getStates().forEach((state: unknown, _clientId: number) => {
+        const stateObj = state as { user?: CollaborativeUser; cursor?: CursorPosition };
+        if (stateObj.user && stateObj.cursor) {
+          users.set(stateObj.user.id, stateObj.user);
+          cursors.set(stateObj.user.id, stateObj.cursor);
         }
       });
     }
@@ -211,9 +213,10 @@ export class CRDTDocument {
     const users: CollaborativeUser[] = [];
     
     if (this.yawareness) {
-      this.yawareness.getStates().forEach((state: any) => {
-        if (state.user) {
-          users.push(state.user);
+      this.yawareness.getStates().forEach((state: unknown) => {
+        const stateObj = state as { user?: CollaborativeUser };
+        if (stateObj.user) {
+          users.push(stateObj.user);
         }
       });
     }
@@ -247,7 +250,7 @@ export class CRDTDocument {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -257,7 +260,7 @@ export class CRDTDocument {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -270,7 +273,7 @@ export class CRDTDocument {
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => callback(data));
@@ -298,8 +301,9 @@ export class CRDTDocument {
   /**
    * Handle awareness changes (cursor movements, user joins/leaves)
    */
-  private handleAwarenessChange(changes: any): void {
-    const { added, updated, removed } = changes;
+  private handleAwarenessChange(changes: unknown): void {
+    const changesObj = changes as { added: number[]; updated: number[]; removed: number[] };
+    const { added, updated, removed } = changesObj;
     
     this.emit('awarenessChange', {
       added: added.map((id: number) => this.yawareness.getStates().get(id)),

@@ -50,7 +50,7 @@ export class CursorTracker {
   private decorations: Map<string, CursorDecoration> = new Map();
   private editor: editor.IStandaloneCodeEditor | null = null;
   private currentUser: CollaborativeUser | null = null;
-  private eventListeners: Map<keyof CursorTrackingEvents, Function[]> = new Map();
+  private eventListeners: Map<keyof CursorTrackingEvents, ((...args: unknown[]) => void)[]> = new Map();
   private typingTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private readonly TYPING_TIMEOUT = 2000; // 2 seconds
 
@@ -222,7 +222,7 @@ export class CursorTracker {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
-    this.eventListeners.get(event)!.push(callback as Function);
+    this.eventListeners.get(event)!.push(callback as (...args: unknown[]) => void);
   }
 
   /**
@@ -234,7 +234,7 @@ export class CursorTracker {
   ): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      const index = listeners.indexOf(callback as Function);
+      const index = listeners.indexOf(callback as (...args: unknown[]) => void);
       if (index > -1) {
         listeners.splice(index, 1);
       }
@@ -252,7 +252,7 @@ export class CursorTracker {
     if (listeners) {
       listeners.forEach(callback => {
         try {
-          (callback as any)(...args);
+          callback(...args);
         } catch (error) {
           console.error(`Error in cursor tracking event listener:`, error);
         }
@@ -291,19 +291,8 @@ export class CursorTracker {
     });
 
     // Track selection changes
-    this.editor.onDidChangeCursorSelection((e) => {
+    this.editor.onDidChangeCursorSelection((_e) => {
       if (!this.currentUser) return;
-
-      const position: CursorPosition = {
-        line: e.selection.positionLineNumber,
-        column: e.selection.positionColumn,
-        selection: {
-          startLine: e.selection.startLineNumber,
-          startColumn: e.selection.startColumn,
-          endLine: e.selection.endLineNumber,
-          endColumn: e.selection.endColumn
-        }
-      };
 
       // This would be sent to other users via the CRDT document
     });
@@ -323,6 +312,7 @@ export class CursorTracker {
 
     // Create cursor decoration
     const cursorDecoration: editor.IModelDeltaDecoration = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       range: new (this.editor.getModel()!.constructor as any).Range(
         position.line,
         position.column,
@@ -340,6 +330,7 @@ export class CursorTracker {
     // Add selection decoration if present
     if (position.selection) {
       const selectionDecoration: editor.IModelDeltaDecoration = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         range: new (this.editor.getModel()!.constructor as any).Range(
           position.selection.startLine,
           position.selection.startColumn,
