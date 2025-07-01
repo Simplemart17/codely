@@ -2,6 +2,7 @@
   "name": "codely",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Interactive Online Coding Education Platform",
   "scripts": {
     "dev": "node server.js",
