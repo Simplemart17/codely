@@ -60,10 +60,10 @@ class ErrorLogger {
   }
 
   private static generateErrorId(): string {
-    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
-  private static async sendToErrorService(errorData: any) {
+  private static async sendToErrorService(errorData: Record<string, unknown>) {
     try {
       // Example: Send to error tracking service
       await fetch('/api/errors', {
@@ -107,7 +107,7 @@ const DefaultErrorFallback: React.FC<{
         }),
       });
       alert('Error reported successfully. Thank you for helping us improve!');
-    } catch (err) {
+    } catch {
       alert('Failed to report error. Please try again later.');
     } finally {
       setIsReporting(false);
@@ -244,17 +244,22 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const errorId = ErrorLogger.log(error, errorInfo, this.props.level);
-    
+    // Convert React.ErrorInfo to our ErrorInfo interface
+    const convertedErrorInfo: ErrorInfo = {
+      componentStack: errorInfo.componentStack || '',
+    };
+
+    const errorId = ErrorLogger.log(error, convertedErrorInfo, this.props.level);
+
     this.setState({
       error,
-      errorInfo,
+      errorInfo: convertedErrorInfo,
       errorId,
     });
 
     // Call custom error handler if provided
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      this.props.onError(error, convertedErrorInfo);
     }
   }
 

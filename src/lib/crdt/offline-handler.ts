@@ -23,8 +23,8 @@ export enum ConnectionState {
  * Offline storage interface
  */
 export interface OfflineStorage {
-  save(key: string, data: any): Promise<void>;
-  load(key: string): Promise<any>;
+  save(key: string, data: unknown): Promise<void>;
+  load(key: string): Promise<unknown>;
   remove(key: string): Promise<void>;
   clear(): Promise<void>;
   keys(): Promise<string[]>;
@@ -52,7 +52,7 @@ export interface OfflineEvents {
   syncStarted: () => void;
   syncCompleted: (syncedOperations: number) => void;
   syncFailed: (error: Error) => void;
-  conflictDetected: (conflicts: any[]) => void;
+  conflictDetected: (conflicts: unknown[]) => void;
   dataRestored: (documentState: DocumentState) => void;
 }
 
@@ -77,7 +77,7 @@ export class OfflineHandler {
   private storage: OfflineStorage;
   private connectionState: ConnectionState = ConnectionState.ONLINE;
   private offlineOperations: Operation[] = [];
-  private eventListeners: Map<keyof OfflineEvents, Function[]> = new Map();
+  private eventListeners: Map<keyof OfflineEvents, ((...args: unknown[]) => void)[]> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private autoSaveTimer: NodeJS.Timeout | null = null;
   private stats: OfflineStats;
@@ -241,7 +241,7 @@ export class OfflineHandler {
   /**
    * Export offline data for backup
    */
-  async exportOfflineData(): Promise<any> {
+  async exportOfflineData(): Promise<unknown> {
     const documentState = Y.encodeStateAsUpdate(this.ydoc);
     
     return {
@@ -255,20 +255,26 @@ export class OfflineHandler {
   /**
    * Import offline data from backup
    */
-  async importOfflineData(data: any): Promise<void> {
+  async importOfflineData(data: unknown): Promise<void> {
     try {
-      if (data.documentState) {
-        const update = new Uint8Array(data.documentState);
+      const dataObj = data as {
+        documentState?: number[];
+        offlineOperations?: Operation[];
+        stats?: Partial<OfflineStats>
+      };
+
+      if (dataObj.documentState) {
+        const update = new Uint8Array(dataObj.documentState);
         Y.applyUpdate(this.ydoc, update);
       }
 
-      if (data.offlineOperations) {
-        this.offlineOperations = data.offlineOperations;
+      if (dataObj.offlineOperations) {
+        this.offlineOperations = dataObj.offlineOperations;
         this.stats.offlineOperations = this.offlineOperations.length;
       }
 
-      if (data.stats) {
-        this.stats = { ...this.stats, ...data.stats };
+      if (dataObj.stats) {
+        this.stats = { ...this.stats, ...dataObj.stats };
       }
 
       await this.saveOfflineData();
@@ -288,7 +294,7 @@ export class OfflineHandler {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
-    this.eventListeners.get(event)!.push(callback as Function);
+    this.eventListeners.get(event)!.push(callback as (...args: unknown[]) => void);
   }
 
   /**
@@ -297,7 +303,7 @@ export class OfflineHandler {
   off<K extends keyof OfflineEvents>(event: K, callback: OfflineEvents[K]): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      const index = listeners.indexOf(callback as Function);
+      const index = listeners.indexOf(callback as (...args: unknown[]) => void);
       if (index > -1) {
         listeners.splice(index, 1);
       }
@@ -328,7 +334,7 @@ export class OfflineHandler {
    * Setup document event listeners
    */
   private setupDocumentListeners(): void {
-    this.ydoc.on('update', (update: Uint8Array, origin: any) => {
+    this.ydoc.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin !== 'remote' && this.isOffline()) {
         // Local update while offline, store it
         const operation = this.createOperationFromUpdate(update);
@@ -421,7 +427,7 @@ export class OfflineHandler {
   /**
    * Sync a single batch of operations
    */
-  private async syncBatch(batch: OperationBatch): Promise<void> {
+  private async syncBatch(_batch: OperationBatch): Promise<void> {
     // This would send the batch to the server or apply to CRDT
     // For now, we'll simulate the sync process
     return new Promise((resolve, reject) => {
@@ -455,15 +461,9 @@ export class OfflineHandler {
   /**
    * Create operation from Yjs update
    */
-  private createOperationFromUpdate(update: Uint8Array): Operation | null {
-    // Simplified operation creation
-    return {
-      type: 'update' as any,
-      position: 0,
-      timestamp: Date.now(),
-      userId: 'local',
-      sessionId: 'offline'
-    };
+  private createOperationFromUpdate(_update: Uint8Array): Operation | null {
+    // Simplified operation creation - returning null for placeholder
+    return null;
   }
 
   /**
@@ -490,7 +490,7 @@ export class OfflineHandler {
     if (listeners) {
       listeners.forEach(callback => {
         try {
-          (callback as any)(...args);
+          callback(...args);
         } catch (error) {
           console.error('Error in offline event listener:', error);
         }
@@ -546,7 +546,7 @@ export class IndexedDBStorage implements OfflineStorage {
     });
   }
 
-  async save(key: string, data: any): Promise<void> {
+  async save(key: string, data: unknown): Promise<void> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
@@ -559,7 +559,7 @@ export class IndexedDBStorage implements OfflineStorage {
     });
   }
 
-  async load(key: string): Promise<any> {
+  async load(key: string): Promise<unknown> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {

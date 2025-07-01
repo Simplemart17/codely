@@ -4,15 +4,14 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Shield, 
-  UserX, 
-  Mic, 
-  MicOff, 
-  Eye, 
+import {
+  Shield,
+  UserX,
+  Mic,
+  MicOff,
+  Eye,
   EyeOff,
   Crown,
-  AlertTriangle,
   Settings,
   Clock,
   Activity
@@ -32,17 +31,16 @@ interface SessionModerationProps {
   className?: string;
 }
 
-export function SessionModeration({ 
-  sessionId,
+export function SessionModeration({
+  sessionId: _sessionId,
   participants,
   onKickParticipant,
   onMuteParticipant,
   onChangeParticipantRole,
   onToggleParticipantVisibility,
-  className 
+  className
 }: SessionModerationProps) {
-  const { canModerate, hasPermission } = usePermissions();
-  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
+  const { canModerate } = usePermissions();
 
   if (!canModerate) {
     return null;
@@ -238,7 +236,7 @@ function ParticipantModerationCard({
               participant.role === 'LEARNER' ? 'bg-green-500' : 'bg-gray-500'
             )}
           >
-            {participant.user?.name?.charAt(0).toUpperCase() || 'U'}
+            {participant.userId?.charAt(0).toUpperCase() || 'U'}
           </div>
           
           {/* Status indicators */}
@@ -256,7 +254,7 @@ function ParticipantModerationCard({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium">
-              {participant.user?.name || 'Unknown User'}
+              {participant.userId || 'Unknown User'}
             </span>
             <Badge 
               className={cn('text-xs', getRoleColor(participant.role))}

@@ -5,7 +5,10 @@
  * infrastructure for real-time collaborative editing.
  */
 
-import { io, Socket } from 'socket.io-client';
+import io from 'socket.io-client';
+
+// Type for the socket instance
+type SocketInstance = ReturnType<typeof io>;
 import { Operation, OperationBatch } from './operations';
 import { CRDTDocument, DocumentState, CollaborativeUser } from './document';
 import { CRDTManager } from './manager';
@@ -49,7 +52,7 @@ export interface WebSocketMessage {
   sessionId: string;
   userId: string;
   timestamp: number;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 /**
@@ -57,7 +60,7 @@ export interface WebSocketMessage {
  */
 export interface WebSocketConfig {
   url: string;
-  options?: any;
+  options?: Record<string, unknown>;
   reconnectAttempts: number;
   reconnectDelay: number;
   heartbeatInterval: number;
@@ -84,7 +87,7 @@ export interface ConnectionStats {
  * WebSocket Integration class for CRDT operations
  */
 export class WebSocketCRDTIntegration {
-  private socket: Socket | null = null;
+  private socket: SocketInstance | null = null;
   private config: WebSocketConfig;
   private crdtManager: CRDTManager;
   private currentUser: CollaborativeUser | null = null;
@@ -92,8 +95,8 @@ export class WebSocketCRDTIntegration {
   private messageQueue: WebSocketMessage[] = [];
   private stats: ConnectionStats;
   private heartbeatTimer: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Function[]> = new Map();
-  private pendingMessages: Map<string, { resolve: Function; reject: Function; timeout: NodeJS.Timeout }> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
+  private pendingMessages: Map<string, { resolve: (value: WebSocketMessage) => void; reject: (reason?: unknown) => void; timeout: NodeJS.Timeout }> = new Map();
 
   constructor(config: WebSocketConfig, crdtManager: CRDTManager) {
     this.config = config;
@@ -145,7 +148,7 @@ export class WebSocketCRDTIntegration {
           resolve();
         });
 
-        this.socket!.on('connect_error', (error) => {
+        this.socket!.on('connect_error', (error: Error) => {
           clearTimeout(timeout);
           this.stats.errors++;
           reject(error);
@@ -171,7 +174,7 @@ export class WebSocketCRDTIntegration {
     this.activeSessions.clear();
     
     // Reject all pending messages
-    for (const [messageId, pending] of this.pendingMessages) {
+    for (const pending of this.pendingMessages.values()) {
       clearTimeout(pending.timeout);
       pending.reject(new Error('Disconnected'));
     }
@@ -276,7 +279,7 @@ export class WebSocketCRDTIntegration {
   /**
    * Send cursor update
    */
-  async sendCursorUpdate(sessionId: string, position: any): Promise<void> {
+  async sendCursorUpdate(sessionId: string, position: { line: number; column: number }): Promise<void> {
     if (!this.socket || !this.currentUser) {
       return;
     }
@@ -310,7 +313,7 @@ export class WebSocketCRDTIntegration {
     };
 
     const response = await this.sendMessage(message);
-    return response.data.state;
+    return response.data.state as DocumentState;
   }
 
   /**
@@ -330,7 +333,7 @@ export class WebSocketCRDTIntegration {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -340,7 +343,7 @@ export class WebSocketCRDTIntegration {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -356,7 +359,7 @@ export class WebSocketCRDTIntegration {
   private setupSocketListeners(): void {
     if (!this.socket) return;
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', (reason: string) => {
       this.stats.connected = false;
       this.emit('disconnected', { reason });
       
@@ -380,14 +383,14 @@ export class WebSocketCRDTIntegration {
       this.stats.reconnectAttempts++;
     });
 
-    this.socket.on('error', (error) => {
+    this.socket.on('error', (error: Error) => {
       this.stats.errors++;
       this.emit('error', error);
     });
 
     // Handle incoming messages
     Object.values(MessageType).forEach(messageType => {
-      this.socket!.on(messageType, (data) => {
+      this.socket!.on(messageType, (data: Record<string, unknown>) => {
         this.handleIncomingMessage(messageType as MessageType, data);
       });
     });
@@ -396,23 +399,24 @@ export class WebSocketCRDTIntegration {
   /**
    * Handle incoming WebSocket messages
    */
-  private handleIncomingMessage(type: MessageType, data: any): void {
+  private handleIncomingMessage(type: MessageType, data: Record<string, unknown>): void {
     this.stats.messagesReceived++;
     this.stats.totalMessages++;
 
     const message: WebSocketMessage = {
       type,
-      sessionId: data.sessionId,
-      userId: data.userId,
-      timestamp: data.timestamp || Date.now(),
-      data: data.data || data
+      sessionId: (data.sessionId as string) || '',
+      userId: (data.userId as string) || '',
+      timestamp: (data.timestamp as number) || Date.now(),
+      data: (data.data as Record<string, unknown>) || data
     };
 
     // Handle message acknowledgments
-    if (data.messageId && this.pendingMessages.has(data.messageId)) {
-      const pending = this.pendingMessages.get(data.messageId)!;
+    const messageId = data.messageId as string;
+    if (messageId && this.pendingMessages.has(messageId)) {
+      const pending = this.pendingMessages.get(messageId)!;
       clearTimeout(pending.timeout);
-      this.pendingMessages.delete(data.messageId);
+      this.pendingMessages.delete(messageId);
       pending.resolve(message);
       return;
     }
@@ -485,18 +489,16 @@ export class WebSocketCRDTIntegration {
   /**
    * Connect CRDT document to WebSocket events
    */
-  private connectDocumentToWebSocket(document: CRDTDocument, sessionId: string): void {
+  private connectDocumentToWebSocket(document: CRDTDocument, _sessionId: string): void {
     // Forward document events to WebSocket
-    document.on('textChange', (data) => {
+    document.on('textChange', (_data: unknown) => {
       // Convert to operation and send
       // This would be implemented based on the specific CRDT implementation
     });
 
-    document.on('awarenessChange', (data) => {
+    document.on('awarenessChange', (_data: unknown) => {
       // Send awareness updates
-      if (data.added || data.updated) {
-        // Send cursor/selection updates
-      }
+      // This would be implemented based on the specific CRDT implementation
     });
   }
 
@@ -616,13 +618,13 @@ export class WebSocketCRDTIntegration {
    * Generate unique message ID
    */
   private generateMessageId(): string {
-    return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => {

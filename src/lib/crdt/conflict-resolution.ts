@@ -5,7 +5,7 @@
  * for collaborative editing scenarios.
  */
 
-import { Operation, OperationType, OperationBatch } from './operations';
+import { Operation, OperationType } from './operations';
 
 /**
  * Conflict types
@@ -69,12 +69,24 @@ export interface ConflictResolution {
 }
 
 /**
+ * Semantic context for conflict analysis
+ */
+export interface SemanticContext {
+  insertPatterns: Array<{ type: string; [key: string]: unknown }>;
+  deletePatterns: Array<{ type: string; position: number; length: number; [key: string]: unknown }>;
+  codeStructures: Array<{ type: string; [key: string]: unknown }>;
+  semanticTokens: Array<{ type: string; value: string; [key: string]: unknown }>;
+  affectedStructures: Array<{ [key: string]: unknown }>;
+  [key: string]: unknown;
+}
+
+/**
  * Semantic analysis result
  */
 export interface SemanticAnalysis {
   canAutoMerge: boolean;
   conflictType: string;
-  semanticContext: any;
+  semanticContext: SemanticContext;
   mergeStrategy: string;
   confidence: number;
 }
@@ -259,13 +271,13 @@ export class ConflictResolver {
       case OperationType.DELETE:
         return {
           start: operation.position,
-          end: operation.position + (operation as any).length
+          end: operation.position + ((operation as { length?: number }).length || 0)
         };
-      
+
       case OperationType.FORMAT:
         return {
           start: operation.position,
-          end: operation.position + (operation as any).length
+          end: operation.position + ((operation as { length?: number }).length || 0)
         };
       
       default:
@@ -289,7 +301,7 @@ export class ConflictResolver {
     const [start, end] = positionRange.split('-').map(Number);
 
     return {
-      id: `conflict-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `conflict-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       type: conflictType,
       severity,
       position: start,
@@ -421,13 +433,13 @@ export class ConflictResolver {
     
     if (insertOps.length > 1) {
       const mergedContent = insertOps
-        .map(op => (op as any).content)
+        .map(op => (op as { content?: string }).content || '')
         .join(' ');
-      
+
       const mergedOp: Operation = {
         ...insertOps[0],
         content: mergedContent
-      } as any;
+      } as unknown as Operation;
 
       return {
         strategy: ResolutionStrategy.MERGE_CONTENT,
@@ -470,7 +482,13 @@ export class ConflictResolver {
     const analysis: SemanticAnalysis = {
       canAutoMerge: false,
       conflictType: 'unknown',
-      semanticContext: {},
+      semanticContext: {
+        insertPatterns: [],
+        deletePatterns: [],
+        codeStructures: [],
+        semanticTokens: [],
+        affectedStructures: []
+      },
       mergeStrategy: 'manual',
       confidence: 0
     };
@@ -500,15 +518,17 @@ export class ConflictResolver {
   /**
    * Analyze insert operations for semantic patterns
    */
-  private analyzeInsertOperations(operations: Operation[]): any {
-    const context: any = {
+  private analyzeInsertOperations(operations: Operation[]): SemanticContext {
+    const context: SemanticContext = {
       insertPatterns: [],
+      deletePatterns: [],
       codeStructures: [],
-      semanticTokens: []
+      semanticTokens: [],
+      affectedStructures: []
     };
 
     for (const op of operations) {
-      const content = (op as any).content || '';
+      const content = (op as { content?: string }).content || '';
 
       // Detect code patterns
       if (this.isCodeBlock(content)) {
@@ -542,14 +562,17 @@ export class ConflictResolver {
   /**
    * Analyze delete operations for semantic patterns
    */
-  private analyzeDeleteOperations(operations: Operation[]): any {
-    const context: any = {
+  private analyzeDeleteOperations(operations: Operation[]): SemanticContext {
+    const context: SemanticContext = {
+      insertPatterns: [],
       deletePatterns: [],
+      codeStructures: [],
+      semanticTokens: [],
       affectedStructures: []
     };
 
     for (const op of operations) {
-      const length = (op as any).length || 0;
+      const length = (op as { length?: number }).length || 0;
 
       context.deletePatterns.push({
         position: op.position,
@@ -570,7 +593,7 @@ export class ConflictResolver {
       const insertPatterns = analysis.semanticContext.insertPatterns || [];
 
       // Can auto-merge if all inserts are comments or whitespace
-      return insertPatterns.every((pattern: any) =>
+      return insertPatterns.every((pattern) =>
         pattern.type === 'comment' || pattern.type === 'whitespace'
       );
     }
@@ -590,7 +613,7 @@ export class ConflictResolver {
 
     // Increase confidence for simple patterns
     const patterns = analysis.semanticContext.insertPatterns || [];
-    const simplePatterns = patterns.filter((p: any) =>
+    const simplePatterns = patterns.filter((p) =>
       p.type === 'whitespace' || p.type === 'comment'
     );
 
@@ -646,14 +669,14 @@ export class ConflictResolver {
       ...sortedOps[0],
       content: mergedContent,
       timestamp: Date.now()
-    } as any;
+    } as unknown as Operation;
   }
 
   /**
    * Merge content semantically
    */
   private mergeContentSemantically(operations: Operation[], analysis: SemanticAnalysis): string {
-    const contents = operations.map(op => (op as any).content || '');
+    const contents = operations.map(op => (op as { content?: string }).content || '');
     const patterns = analysis.semanticContext.insertPatterns || [];
 
     // Group by pattern type
@@ -689,7 +712,7 @@ export class ConflictResolver {
     const patterns = analysis.semanticContext.insertPatterns || [];
 
     // If all inserts are whitespace, merge them
-    if (patterns.every((p: any) => p.type === 'whitespace')) {
+    if (patterns.every((p) => p.type === 'whitespace')) {
       return this.resolveMergeContent(conflict);
     }
 
@@ -700,11 +723,11 @@ export class ConflictResolver {
   /**
    * Resolve delete conflict intelligently
    */
-  private resolveDeleteConflictIntelligently(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+  private resolveDeleteConflictIntelligently(conflict: Conflict, _analysis: SemanticAnalysis): ConflictResolution {
     // For delete conflicts, prefer the larger deletion (more comprehensive change)
     const deleteOps = conflict.operations.filter(op => op.type === OperationType.DELETE);
     const largestDelete = deleteOps.reduce((largest, current) =>
-      ((current as any).length || 0) > ((largest as any).length || 0) ? current : largest
+      ((current as { length?: number }).length || 0) > ((largest as { length?: number }).length || 0) ? current : largest
     );
 
     const discardedOps = conflict.operations.filter(op => op !== largestDelete);
@@ -742,7 +765,7 @@ export class ConflictResolver {
   /**
    * Calculate operation priority for conflict resolution
    */
-  private calculateOperationPriority(operation: Operation, analysis: SemanticAnalysis): number {
+  private calculateOperationPriority(operation: Operation, _analysis: SemanticAnalysis): number {
     let priority = 1;
 
     // Higher priority for inserts over deletes
@@ -751,7 +774,7 @@ export class ConflictResolver {
     }
 
     // Higher priority for code content
-    const content = (operation as any).content || '';
+    const content = (operation as { content?: string }).content || '';
     if (this.isCodeBlock(content)) {
       priority += 3;
     } else if (this.isComment(content)) {
@@ -765,7 +788,7 @@ export class ConflictResolver {
    * Extract merged content from operation
    */
   private extractMergedContent(operation: Operation): string {
-    return (operation as any).content || '';
+    return (operation as { content?: string }).content || '';
   }
 
   /**
@@ -807,8 +830,8 @@ export class ConflictResolver {
   /**
    * Extract semantic tokens from content
    */
-  private extractSemanticTokens(content: string): any[] {
-    const tokens: any[] = [];
+  private extractSemanticTokens(content: string): Array<{ type: string; value: string }> {
+    const tokens: Array<{ type: string; value: string }> = [];
 
     // Simple tokenization
     const words = content.split(/\s+/).filter(word => word.length > 0);
@@ -856,7 +879,7 @@ export class ConflictResolver {
    * Classify delete operation type
    */
   private classifyDeleteOperation(operation: Operation): string {
-    const length = (operation as any).length || 0;
+    const length = (operation as { length?: number }).length || 0;
 
     if (length === 1) {
       return 'character_delete';

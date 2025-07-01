@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket, useSessionParticipants } from '@/hooks/use-socket';
 import { ParticipantInfo } from '@/lib/socket-client';
-import { Users, Crown, User, Circle } from 'lucide-react';
+import { Users, Crown, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ParticipantsListProps {
@@ -135,7 +135,7 @@ function ParticipantItem({ participant, isRecentlyJoined }: ParticipantItemProps
             {participant.name}
           </span>
           {isInstructor && (
-            <Crown className="h-3 w-3 text-yellow-500" title="Instructor" />
+            <Crown className="h-3 w-3 text-yellow-500" />
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">

@@ -1,21 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Camera, 
-  Code, 
-  Download, 
-  Share2, 
+import {
+  Camera,
+  Code,
+  Download,
   Clock,
   User,
   Trash2,
   Eye,
-  RotateCcw,
-  Plus
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionSnapshot, CreateSnapshotData } from '@/types';
@@ -39,11 +37,7 @@ export function SessionSnapshots({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    fetchSnapshots();
-  }, [sessionId]);
-
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = useCallback(async () => {
     setIsLoading(true);
     try {
       // TODO: Replace with actual API call
@@ -83,7 +77,11 @@ export function SessionSnapshots({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    fetchSnapshots();
+  }, [fetchSnapshots]);
 
   const handleCreateSnapshot = async (data: CreateSnapshotData) => {
     try {

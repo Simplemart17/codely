@@ -25,7 +25,7 @@ export interface SessionConfig {
 export interface DocumentEvent {
   sessionId: string;
   type: string;
-  data: any;
+  data: unknown;
   timestamp: number;
 }
 
@@ -34,7 +34,7 @@ export interface DocumentEvent {
  */
 export class CRDTManager {
   private documents: Map<string, CRDTDocument> = new Map();
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
   private currentUser: CollaborativeUser | null = null;
   private websocketUrl: string;
 
@@ -58,7 +58,7 @@ export class CRDTManager {
    * Create or join a collaborative session
    */
   async joinSession(config: SessionConfig): Promise<CRDTDocument> {
-    const { sessionId, user, language, initialContent } = config;
+    const { sessionId, user, initialContent } = config;
 
     // Check if document already exists
     if (this.documents.has(sessionId)) {
@@ -224,7 +224,7 @@ export class CRDTManager {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -234,7 +234,7 @@ export class CRDTManager {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -247,7 +247,7 @@ export class CRDTManager {
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => {
@@ -265,7 +265,7 @@ export class CRDTManager {
    */
   private setupDocumentEventForwarding(document: CRDTDocument, sessionId: string): void {
     const forwardEvent = (eventType: string) => {
-      document.on(eventType, (data: any) => {
+      document.on(eventType, (data: unknown) => {
         const event: DocumentEvent = {
           sessionId,
           type: eventType,

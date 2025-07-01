@@ -104,7 +104,7 @@ export interface SessionSnapshot {
   title: string;
   description?: string;
   code: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, string | number | boolean>;
   createdBy: string;
   createdAt: Date;
   // Relations
@@ -144,7 +144,7 @@ export interface CreateSnapshotData {
   title: string;
   description?: string;
   code: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 // Analytics types
@@ -182,7 +182,7 @@ export interface TimelineEvent {
   type: EventType;
   userId?: string;
   timestamp: Date;
-  data: Record<string, any>;
+  data: Record<string, string | number | boolean | Date>;
 }
 
 export type EventType =

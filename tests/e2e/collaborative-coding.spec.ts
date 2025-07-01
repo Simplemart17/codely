@@ -55,7 +55,6 @@ test.describe('Collaborative Coding Flow', () => {
 
     // Mock code execution
     await page.route('**/api/sessions/session-123/execute', async route => {
-      const requestBody = await route.request().postDataJSON();
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

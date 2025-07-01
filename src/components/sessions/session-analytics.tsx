@@ -1,31 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  BarChart3, 
-  Users, 
-  Clock, 
-  Activity, 
-  Code, 
+import {
+  BarChart3,
+  Users,
+  Clock,
+  Code,
   Play,
   Camera,
-  TrendingUp,
   Download,
   RefreshCw,
-  Calendar,
   Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermissions, WithPermission } from '@/hooks/use-permissions';
 import { Permission } from '@/lib/permissions';
-import type { 
-  SessionAnalytics, 
-  ParticipantAnalytics, 
-  EngagementMetrics,
-  TimelineEvent 
+import type {
+  SessionAnalytics,
+  ParticipantAnalytics,
+  EngagementMetrics
 } from '@/types';
 
 interface SessionAnalyticsProps {
@@ -40,13 +36,7 @@ export function SessionAnalytics({ sessionId, className }: SessionAnalyticsProps
   const [isLoading, setIsLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | 'all'>('all');
 
-  useEffect(() => {
-    if (canAnalyze) {
-      fetchAnalytics();
-    }
-  }, [sessionId, canAnalyze, timeRange]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setIsLoading(true);
     try {
       // TODO: Replace with actual API calls
@@ -115,7 +105,13 @@ export function SessionAnalytics({ sessionId, className }: SessionAnalyticsProps
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (canAnalyze) {
+      fetchAnalytics();
+    }
+  }, [canAnalyze, fetchAnalytics]);
 
   const exportAnalytics = () => {
     if (!analytics) return;

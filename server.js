@@ -1,6 +1,12 @@
-const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
+/**
+ * Node.js Server for Collaborative Coding Platform
+ *
+ * This file uses ES modules for modern Node.js compatibility.
+ */
+
+import { createServer } from 'http';
+import { parse } from 'url';
+import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -10,7 +16,7 @@ const port = process.env.PORT || 3000;
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
   const httpServer = createServer(async (req, res) => {
     try {
       // Be sure to pass `true` as the second argument to `url.parse`.
@@ -25,7 +31,7 @@ app.prepare().then(() => {
   });
 
   // Initialize Socket.io server
-  const { Server } = require('socket.io');
+  const { Server } = await import('socket.io');
   const io = new Server(httpServer, {
     path: '/api/socket',
     addTrailingSlash: false,

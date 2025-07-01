@@ -34,7 +34,7 @@ export interface BaseOperation {
 export interface InsertOperation extends BaseOperation {
   type: OperationType.INSERT;
   content: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface DeleteOperation extends BaseOperation {
 export interface RetainOperation extends BaseOperation {
   type: OperationType.RETAIN;
   length: number;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -60,7 +60,7 @@ export interface RetainOperation extends BaseOperation {
 export interface FormatOperation extends BaseOperation {
   type: OperationType.FORMAT;
   length: number;
-  attributes: Record<string, any>;
+  attributes: Record<string, unknown>;
 }
 
 /**
@@ -237,7 +237,7 @@ export class OperationTransformer {
   private transformRetain(
     retainOp: RetainOperation, 
     otherOp: Operation, 
-    conflicts: string[]
+    _conflicts: string[]
   ): RetainOperation {
     const transformed = { ...retainOp };
 
@@ -401,6 +401,7 @@ export class OperationTransformer {
   /**
    * Create operation from Yjs event
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static createOperationFromYEvent(event: Y.YEvent<any>, userId: string, sessionId: string): Operation[] {
     const operations: Operation[] = [];
     
@@ -420,7 +421,7 @@ export class OperationTransformer {
             timestamp,
             userId,
             sessionId,
-            attributes: change.attributes
+            attributes: (change as { attributes?: Record<string, unknown> }).attributes
           } as InsertOperation);
           index += change.insert.length;
         } else if (change.delete) {

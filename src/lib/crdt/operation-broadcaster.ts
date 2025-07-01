@@ -6,7 +6,7 @@
  */
 
 import { Operation, OperationBatch } from './operations';
-import { CollaborativeUser } from './document';
+// Removed unused import: CollaborativeUser
 
 /**
  * Broadcast target types
@@ -41,7 +41,7 @@ export interface BroadcastMessage {
   excludeUsers?: string[];
   priority: BroadcastPriority;
   timestamp: number;
-  data: any;
+  data: unknown;
   retryCount?: number;
   expiresAt?: number;
 }
@@ -81,7 +81,7 @@ export interface BroadcastConnection {
   sessionId: string;
   connected: boolean;
   lastActivity: number;
-  send(message: any): Promise<void>;
+  send(message: unknown): Promise<void>;
   disconnect(): void;
 }
 
@@ -95,7 +95,7 @@ export class OperationBroadcaster {
   private config: BroadcastConfig;
   private stats: BroadcastStats;
   private batchTimer: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
   private messageHistory: Map<string, BroadcastMessage> = new Map();
 
   constructor(config: Partial<BroadcastConfig> = {}) {
@@ -223,7 +223,7 @@ export class OperationBroadcaster {
    * Broadcast awareness update (cursor, selection, etc.)
    */
   async broadcastAwareness(
-    awarenessData: any,
+    awarenessData: unknown,
     sessionId: string,
     sourceUserId: string,
     target: BroadcastTarget = BroadcastTarget.SESSION_USERS,
@@ -253,7 +253,7 @@ export class OperationBroadcaster {
    * Broadcast state update
    */
   async broadcastState(
-    stateData: any,
+    stateData: unknown,
     sessionId: string,
     sourceUserId: string,
     target: BroadcastTarget = BroadcastTarget.SESSION_USERS
@@ -306,7 +306,7 @@ export class OperationBroadcaster {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -316,7 +316,7 @@ export class OperationBroadcaster {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -439,7 +439,7 @@ export class OperationBroadcaster {
   /**
    * Prepare message for sending
    */
-  private prepareMessageForSending(message: BroadcastMessage): any {
+  private prepareMessageForSending(message: BroadcastMessage): unknown {
     let data = message.data;
 
     // Compress if enabled and beneficial
@@ -460,7 +460,7 @@ export class OperationBroadcaster {
   /**
    * Check if message should be compressed
    */
-  private shouldCompress(data: any): boolean {
+  private shouldCompress(data: unknown): boolean {
     const serialized = JSON.stringify(data);
     return serialized.length > 1024; // Compress if larger than 1KB
   }
@@ -468,7 +468,7 @@ export class OperationBroadcaster {
   /**
    * Compress data (placeholder implementation)
    */
-  private compressData(data: any): any {
+  private compressData(data: unknown): unknown {
     // In a real implementation, you would use a compression library
     return data;
   }
@@ -568,13 +568,13 @@ export class OperationBroadcaster {
    * Generate unique message ID
    */
   private generateMessageId(): string {
-    return `broadcast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `broadcast-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => {
