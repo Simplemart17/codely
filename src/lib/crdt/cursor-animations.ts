@@ -6,7 +6,7 @@
  */
 
 import type { editor } from 'monaco-editor';
-import { CollaborativeUser, CursorPosition } from './document';
+import { CursorPosition } from './document';
 
 /**
  * Animation types
@@ -182,7 +182,7 @@ export class CursorAnimator {
    */
   animateCursorAppearance(
     userId: string,
-    position: CursorPosition,
+    _position: CursorPosition,
     type: AnimationType = AnimationType.FADE_IN
   ): Promise<void> {
     if (!this.isEnabled) {
