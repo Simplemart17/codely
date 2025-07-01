@@ -6,7 +6,7 @@
  */
 
 import * as Y from 'yjs';
-import { Operation, OperationBatch } from './operations';
+import { Operation } from './operations';
 import { DocumentState, CollaborativeUser } from './document';
 
 /**
@@ -28,11 +28,11 @@ export interface SyncEvents {
   stateChanged: (state: SyncState) => void;
   documentSynced: (state: DocumentState) => void;
   operationReceived: (operation: Operation) => void;
-  conflictDetected: (conflict: any) => void;
+  conflictDetected: (conflict: unknown) => void;
   syncError: (error: Error) => void;
   userJoined: (user: CollaborativeUser) => void;
   userLeft: (userId: string) => void;
-  awarenessUpdated: (awareness: Map<string, any>) => void;
+  awarenessUpdated: (awareness: Map<string, unknown>) => void;
 }
 
 /**
@@ -68,7 +68,7 @@ export class StateSynchronizer {
   private ydoc: Y.Doc;
   private state: SyncState = SyncState.DISCONNECTED;
   private config: SyncConfig;
-  private eventListeners: Map<keyof SyncEvents, Function[]> = new Map();
+  private eventListeners: Map<keyof SyncEvents, ((...args: unknown[]) => void)[]> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private pendingOperations: Map<string, Operation> = new Map();
@@ -247,23 +247,24 @@ export class StateSynchronizer {
   /**
    * Handle incoming sync message
    */
-  handleSyncMessage(message: any): void {
+  handleSyncMessage(message: unknown): void {
     try {
-      switch (message.type) {
+      const msgObj = message as { type: string; [key: string]: unknown };
+      switch (msgObj.type) {
         case 'stateVector':
-          this.handleStateVectorMessage(message);
+          this.handleStateVectorMessage(msgObj);
           break;
         case 'update':
-          this.handleUpdateMessage(message);
+          this.handleUpdateMessage(msgObj);
           break;
         case 'ack':
-          this.handleAckMessage(message);
+          this.handleAckMessage(msgObj);
           break;
         case 'conflict':
-          this.handleConflictMessage(message);
+          this.handleConflictMessage(msgObj);
           break;
         default:
-          console.warn('Unknown sync message type:', message.type);
+          console.warn('Unknown sync message type:', msgObj.type);
       }
     } catch (error) {
       this.emit('syncError', error as Error);
@@ -277,7 +278,7 @@ export class StateSynchronizer {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
-    this.eventListeners.get(event)!.push(callback as Function);
+    this.eventListeners.get(event)!.push(callback as (...args: unknown[]) => void);
   }
 
   /**
@@ -286,7 +287,7 @@ export class StateSynchronizer {
   off<K extends keyof SyncEvents>(event: K, callback: SyncEvents[K]): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      const index = listeners.indexOf(callback as Function);
+      const index = listeners.indexOf(callback as (...args: unknown[]) => void);
       if (index > -1) {
         listeners.splice(index, 1);
       }
@@ -307,7 +308,7 @@ export class StateSynchronizer {
    * Setup document event listeners
    */
   private setupDocumentListeners(): void {
-    this.ydoc.on('update', (update: Uint8Array, origin: any) => {
+    this.ydoc.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin !== 'remote') {
         // Local update, add to pending operations
         const operation = this.createOperationFromUpdate(update);
@@ -426,7 +427,7 @@ export class StateSynchronizer {
       type: 'update',
       payload,
       timestamp: Date.now()
-    } as any);
+    } as unknown as Operation);
   }
 
   /**
@@ -440,7 +441,7 @@ export class StateSynchronizer {
       type: 'stateVectorRequest',
       stateVector,
       timestamp: Date.now()
-    } as any);
+    } as unknown as Operation);
   }
 
   /**
@@ -451,7 +452,7 @@ export class StateSynchronizer {
     this.emit('operationReceived', {
       type: 'heartbeat',
       timestamp: Date.now()
-    } as any);
+    } as unknown as Operation);
   }
 
   /**
@@ -474,8 +475,9 @@ export class StateSynchronizer {
   /**
    * Handle state vector message
    */
-  private handleStateVectorMessage(message: any): void {
-    const update = this.applyStateVector(message.stateVector);
+  private handleStateVectorMessage(message: unknown): void {
+    const msgObj = message as { stateVector: Uint8Array };
+    const update = this.applyStateVector(msgObj.stateVector);
     if (update) {
       this.sendUpdate(update);
     }
@@ -484,38 +486,36 @@ export class StateSynchronizer {
   /**
    * Handle update message
    */
-  private handleUpdateMessage(message: any): void {
-    this.applyUpdate(message.payload);
+  private handleUpdateMessage(message: unknown): void {
+    const msgObj = message as { payload: Uint8Array };
+    this.applyUpdate(msgObj.payload);
   }
 
   /**
    * Handle acknowledgment message
    */
-  private handleAckMessage(message: any): void {
-    this.acknowledgeOperation(message.operationId);
+  private handleAckMessage(message: unknown): void {
+    const msgObj = message as { operationId: string };
+    this.acknowledgeOperation(msgObj.operationId);
   }
 
   /**
    * Handle conflict message
    */
-  private handleConflictMessage(message: any): void {
+  private handleConflictMessage(message: unknown): void {
     this.stats.conflictsResolved++;
-    this.emit('conflictDetected', message.conflict);
+    const msgObj = message as { conflict: unknown };
+    this.emit('conflictDetected', msgObj.conflict);
   }
 
   /**
    * Create operation from Yjs update
    */
-  private createOperationFromUpdate(update: Uint8Array): Operation | null {
+  private createOperationFromUpdate(_update: Uint8Array): Operation | null {
     // This is a simplified implementation
     // In practice, you'd decode the update and create proper operations
-    return {
-      type: 'update' as any,
-      position: 0,
-      timestamp: Date.now(),
-      userId: 'local',
-      sessionId: 'current'
-    };
+    // Returning null for now as this is a placeholder
+    return null;
   }
 
   /**
@@ -544,7 +544,7 @@ export class StateSynchronizer {
     const array = new Uint8Array(vectorMap.size * 8);
     let offset = 0;
     
-    for (const [client, clock] of vectorMap) {
+    for (const [_client, clock] of vectorMap) {
       // This is a simplified implementation
       array[offset++] = clock & 0xFF;
     }
@@ -588,7 +588,7 @@ export class StateSynchronizer {
     if (listeners) {
       listeners.forEach(callback => {
         try {
-          (callback as any)(...args);
+          callback(...args);
         } catch (error) {
           console.error('Error in sync event listener:', error);
         }
