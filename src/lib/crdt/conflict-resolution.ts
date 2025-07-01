@@ -69,6 +69,17 @@ export interface ConflictResolution {
 }
 
 /**
+ * Semantic analysis result
+ */
+export interface SemanticAnalysis {
+  canAutoMerge: boolean;
+  conflictType: string;
+  semanticContext: any;
+  mergeStrategy: string;
+  confidence: number;
+}
+
+/**
  * User priority configuration
  */
 export interface UserPriority {
@@ -435,12 +446,427 @@ export class ConflictResolver {
    * Resolve conflict using semantic analysis
    */
   private resolveSemanticMerge(conflict: Conflict): ConflictResolution {
-    // Placeholder for semantic analysis
-    // In a real implementation, this would analyze code semantics
-    // and attempt intelligent merging
-    
-    // For now, fallback to merge content
-    return this.resolveMergeContent(conflict);
+    try {
+      // Analyze the semantic context of the conflict
+      const semanticAnalysis = this.analyzeSemanticContext(conflict);
+
+      if (semanticAnalysis.canAutoMerge) {
+        return this.performSemanticMerge(conflict, semanticAnalysis);
+      }
+
+      // If semantic merge is not possible, use intelligent fallback
+      return this.intelligentFallbackResolution(conflict, semanticAnalysis);
+    } catch (error) {
+      console.warn('Semantic merge failed, falling back to content merge:', error);
+      return this.resolveMergeContent(conflict);
+    }
+  }
+
+  /**
+   * Analyze semantic context of conflict
+   */
+  private analyzeSemanticContext(conflict: Conflict): SemanticAnalysis {
+    const operations = conflict.operations;
+    const analysis: SemanticAnalysis = {
+      canAutoMerge: false,
+      conflictType: 'unknown',
+      semanticContext: {},
+      mergeStrategy: 'manual',
+      confidence: 0
+    };
+
+    // Analyze operation types and patterns
+    const insertOps = operations.filter(op => op.type === OperationType.INSERT);
+    const deleteOps = operations.filter(op => op.type === OperationType.DELETE);
+
+    if (insertOps.length > 0) {
+      analysis.semanticContext = this.analyzeInsertOperations(insertOps);
+      analysis.conflictType = 'insert_conflict';
+    }
+
+    if (deleteOps.length > 0) {
+      const deleteAnalysis = this.analyzeDeleteOperations(deleteOps);
+      analysis.semanticContext = { ...analysis.semanticContext, ...deleteAnalysis };
+      analysis.conflictType = analysis.conflictType === 'insert_conflict' ? 'mixed_conflict' : 'delete_conflict';
+    }
+
+    // Determine if auto-merge is possible
+    analysis.canAutoMerge = this.canPerformAutoMerge(analysis);
+    analysis.confidence = this.calculateMergeConfidence(analysis);
+
+    return analysis;
+  }
+
+  /**
+   * Analyze insert operations for semantic patterns
+   */
+  private analyzeInsertOperations(operations: Operation[]): any {
+    const context: any = {
+      insertPatterns: [],
+      codeStructures: [],
+      semanticTokens: []
+    };
+
+    for (const op of operations) {
+      const content = (op as any).content || '';
+
+      // Detect code patterns
+      if (this.isCodeBlock(content)) {
+        context.codeStructures.push({
+          type: 'code_block',
+          content,
+          position: op.position
+        });
+      } else if (this.isComment(content)) {
+        context.insertPatterns.push({
+          type: 'comment',
+          content,
+          position: op.position
+        });
+      } else if (this.isWhitespace(content)) {
+        context.insertPatterns.push({
+          type: 'whitespace',
+          content,
+          position: op.position
+        });
+      }
+
+      // Extract semantic tokens
+      const tokens = this.extractSemanticTokens(content);
+      context.semanticTokens.push(...tokens);
+    }
+
+    return context;
+  }
+
+  /**
+   * Analyze delete operations for semantic patterns
+   */
+  private analyzeDeleteOperations(operations: Operation[]): any {
+    const context: any = {
+      deletePatterns: [],
+      affectedStructures: []
+    };
+
+    for (const op of operations) {
+      const length = (op as any).length || 0;
+
+      context.deletePatterns.push({
+        position: op.position,
+        length,
+        type: this.classifyDeleteOperation(op)
+      });
+    }
+
+    return context;
+  }
+
+  /**
+   * Check if auto-merge is possible
+   */
+  private canPerformAutoMerge(analysis: SemanticAnalysis): boolean {
+    // Simple heuristics for auto-merge capability
+    if (analysis.conflictType === 'insert_conflict') {
+      const insertPatterns = analysis.semanticContext.insertPatterns || [];
+
+      // Can auto-merge if all inserts are comments or whitespace
+      return insertPatterns.every((pattern: any) =>
+        pattern.type === 'comment' || pattern.type === 'whitespace'
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Calculate merge confidence score
+   */
+  private calculateMergeConfidence(analysis: SemanticAnalysis): number {
+    let confidence = 0.5; // Base confidence
+
+    if (analysis.canAutoMerge) {
+      confidence += 0.3;
+    }
+
+    // Increase confidence for simple patterns
+    const patterns = analysis.semanticContext.insertPatterns || [];
+    const simplePatterns = patterns.filter((p: any) =>
+      p.type === 'whitespace' || p.type === 'comment'
+    );
+
+    if (simplePatterns.length === patterns.length) {
+      confidence += 0.2;
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Perform semantic merge
+   */
+  private performSemanticMerge(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+    const mergedOperation = this.createMergedOperation(conflict, analysis);
+    const discardedOperations = conflict.operations.filter(op => op !== mergedOperation);
+
+    return {
+      strategy: ResolutionStrategy.SEMANTIC_MERGE,
+      resolvedOperation: mergedOperation,
+      discardedOperations,
+      mergedContent: this.extractMergedContent(mergedOperation),
+      timestamp: Date.now()
+    };
+  }
+
+  /**
+   * Create merged operation from conflict analysis
+   */
+  private createMergedOperation(conflict: Conflict, analysis: SemanticAnalysis): Operation {
+    const operations = conflict.operations;
+    const baseOp = operations[0];
+
+    if (analysis.conflictType === 'insert_conflict') {
+      return this.mergeInsertOperations(operations, analysis);
+    }
+
+    // Fallback to first operation
+    return baseOp;
+  }
+
+  /**
+   * Merge insert operations intelligently
+   */
+  private mergeInsertOperations(operations: Operation[], analysis: SemanticAnalysis): Operation {
+    const insertOps = operations.filter(op => op.type === OperationType.INSERT);
+    const sortedOps = insertOps.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Merge content based on semantic analysis
+    const mergedContent = this.mergeContentSemantically(sortedOps, analysis);
+
+    return {
+      ...sortedOps[0],
+      content: mergedContent,
+      timestamp: Date.now()
+    } as any;
+  }
+
+  /**
+   * Merge content semantically
+   */
+  private mergeContentSemantically(operations: Operation[], analysis: SemanticAnalysis): string {
+    const contents = operations.map(op => (op as any).content || '');
+    const patterns = analysis.semanticContext.insertPatterns || [];
+
+    // Group by pattern type
+    const comments = contents.filter((_, i) => patterns[i]?.type === 'comment');
+    const whitespace = contents.filter((_, i) => patterns[i]?.type === 'whitespace');
+    const code = contents.filter((_, i) => !patterns[i] || patterns[i].type === 'code');
+
+    // Merge in logical order: code first, then comments, then whitespace
+    return [...code, ...comments, ...whitespace].join('');
+  }
+
+  /**
+   * Intelligent fallback resolution
+   */
+  private intelligentFallbackResolution(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+    // Use analysis to choose the best fallback strategy
+    switch (analysis.conflictType) {
+      case 'insert_conflict':
+        return this.resolveInsertConflictIntelligently(conflict, analysis);
+      case 'delete_conflict':
+        return this.resolveDeleteConflictIntelligently(conflict, analysis);
+      case 'mixed_conflict':
+        return this.resolveMixedConflictIntelligently(conflict, analysis);
+      default:
+        return this.resolveLastWriterWins(conflict);
+    }
+  }
+
+  /**
+   * Resolve insert conflict intelligently
+   */
+  private resolveInsertConflictIntelligently(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+    const patterns = analysis.semanticContext.insertPatterns || [];
+
+    // If all inserts are whitespace, merge them
+    if (patterns.every((p: any) => p.type === 'whitespace')) {
+      return this.resolveMergeContent(conflict);
+    }
+
+    // If mixed content, use user priority
+    return this.resolveByUserPriority(conflict);
+  }
+
+  /**
+   * Resolve delete conflict intelligently
+   */
+  private resolveDeleteConflictIntelligently(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+    // For delete conflicts, prefer the larger deletion (more comprehensive change)
+    const deleteOps = conflict.operations.filter(op => op.type === OperationType.DELETE);
+    const largestDelete = deleteOps.reduce((largest, current) =>
+      ((current as any).length || 0) > ((largest as any).length || 0) ? current : largest
+    );
+
+    const discardedOps = conflict.operations.filter(op => op !== largestDelete);
+
+    return {
+      strategy: ResolutionStrategy.SEMANTIC_MERGE,
+      resolvedOperation: largestDelete,
+      discardedOperations: discardedOps,
+      timestamp: Date.now()
+    };
+  }
+
+  /**
+   * Resolve mixed conflict intelligently
+   */
+  private resolveMixedConflictIntelligently(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+    // For mixed conflicts, prioritize based on operation impact
+    const operations = conflict.operations;
+    const prioritizedOp = operations.reduce((highest, current) => {
+      const currentPriority = this.calculateOperationPriority(current, analysis);
+      const highestPriority = this.calculateOperationPriority(highest, analysis);
+      return currentPriority > highestPriority ? current : highest;
+    });
+
+    const discardedOps = operations.filter(op => op !== prioritizedOp);
+
+    return {
+      strategy: ResolutionStrategy.SEMANTIC_MERGE,
+      resolvedOperation: prioritizedOp,
+      discardedOperations: discardedOps,
+      timestamp: Date.now()
+    };
+  }
+
+  /**
+   * Calculate operation priority for conflict resolution
+   */
+  private calculateOperationPriority(operation: Operation, analysis: SemanticAnalysis): number {
+    let priority = 1;
+
+    // Higher priority for inserts over deletes
+    if (operation.type === OperationType.INSERT) {
+      priority += 2;
+    }
+
+    // Higher priority for code content
+    const content = (operation as any).content || '';
+    if (this.isCodeBlock(content)) {
+      priority += 3;
+    } else if (this.isComment(content)) {
+      priority += 1;
+    }
+
+    return priority;
+  }
+
+  /**
+   * Extract merged content from operation
+   */
+  private extractMergedContent(operation: Operation): string {
+    return (operation as any).content || '';
+  }
+
+  /**
+   * Check if content is a code block
+   */
+  private isCodeBlock(content: string): boolean {
+    // Simple heuristics for code detection
+    const codePatterns = [
+      /function\s+\w+/,
+      /class\s+\w+/,
+      /if\s*\(/,
+      /for\s*\(/,
+      /while\s*\(/,
+      /\{[\s\S]*\}/,
+      /=>\s*\{/
+    ];
+
+    return codePatterns.some(pattern => pattern.test(content));
+  }
+
+  /**
+   * Check if content is a comment
+   */
+  private isComment(content: string): boolean {
+    const trimmed = content.trim();
+    return trimmed.startsWith('//') ||
+           trimmed.startsWith('/*') ||
+           trimmed.startsWith('*') ||
+           trimmed.startsWith('#');
+  }
+
+  /**
+   * Check if content is whitespace
+   */
+  private isWhitespace(content: string): boolean {
+    return /^\s*$/.test(content);
+  }
+
+  /**
+   * Extract semantic tokens from content
+   */
+  private extractSemanticTokens(content: string): any[] {
+    const tokens: any[] = [];
+
+    // Simple tokenization
+    const words = content.split(/\s+/).filter(word => word.length > 0);
+
+    for (const word of words) {
+      if (this.isKeyword(word)) {
+        tokens.push({ type: 'keyword', value: word });
+      } else if (this.isIdentifier(word)) {
+        tokens.push({ type: 'identifier', value: word });
+      } else if (this.isOperator(word)) {
+        tokens.push({ type: 'operator', value: word });
+      }
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Check if word is a programming keyword
+   */
+  private isKeyword(word: string): boolean {
+    const keywords = [
+      'function', 'class', 'if', 'else', 'for', 'while', 'return',
+      'const', 'let', 'var', 'import', 'export', 'default'
+    ];
+    return keywords.includes(word);
+  }
+
+  /**
+   * Check if word is an identifier
+   */
+  private isIdentifier(word: string): boolean {
+    return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(word);
+  }
+
+  /**
+   * Check if word is an operator
+   */
+  private isOperator(word: string): boolean {
+    const operators = ['+', '-', '*', '/', '=', '==', '===', '!=', '!==', '<', '>', '<=', '>='];
+    return operators.includes(word);
+  }
+
+  /**
+   * Classify delete operation type
+   */
+  private classifyDeleteOperation(operation: Operation): string {
+    const length = (operation as any).length || 0;
+
+    if (length === 1) {
+      return 'character_delete';
+    } else if (length < 10) {
+      return 'word_delete';
+    } else if (length < 100) {
+      return 'line_delete';
+    } else {
+      return 'block_delete';
+    }
   }
 }
 
