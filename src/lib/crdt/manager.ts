@@ -35,6 +35,7 @@ export interface DocumentEvent {
 export class CRDTManager {
   private documents: Map<string, CRDTDocument> = new Map();
   private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
+  private currentUser: CollaborativeUser | null = null;
   private websocketUrl: string;
 
   constructor(websocketUrl: string) {

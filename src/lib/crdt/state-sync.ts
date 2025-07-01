@@ -544,7 +544,7 @@ export class StateSynchronizer {
     const array = new Uint8Array(vectorMap.size * 8);
     let offset = 0;
     
-    for (const [_client, clock] of vectorMap) {
+    for (const [, clock] of vectorMap) {
       // This is a simplified implementation
       array[offset++] = clock & 0xFF;
     }
