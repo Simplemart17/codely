@@ -1,18 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Mail, 
-  UserPlus, 
-  Clock, 
-  Check, 
-  X, 
-  Copy, 
-  ExternalLink,
+import {
+  Mail,
+  UserPlus,
+  Clock,
+  Copy,
   Trash2,
   RefreshCw
 } from 'lucide-react';
@@ -39,13 +36,7 @@ export function SessionInvitations({
   const [isLoading, setIsLoading] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
 
-  useEffect(() => {
-    if (isInstructor) {
-      fetchInvitations();
-    }
-  }, [sessionId, isInstructor]);
-
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     setIsLoading(true);
     try {
       // TODO: Replace with actual API call
@@ -69,7 +60,13 @@ export function SessionInvitations({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (isInstructor) {
+      fetchInvitations();
+    }
+  }, [sessionId, isInstructor, fetchInvitations]);
 
   const handleCreateInvitation = async (data: CreateInvitationData) => {
     try {
@@ -79,7 +76,7 @@ export function SessionInvitations({
         sessionId: data.sessionId,
         inviterId: 'current_user_id', // TODO: Get from auth context
         email: data.email,
-        userId: data.userId,
+        inviteeId: data.userId,
         role: data.role,
         status: 'PENDING',
         token: Math.random().toString(36).substring(2, 15),

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import { ParticipantInfo } from '@/lib/socket-client';
 import { Button } from '@/components/ui/button';
@@ -37,35 +37,15 @@ export function SessionConnection({
 
   const isInSession = currentSessionId === sessionId;
 
-  // Auto-connect when component mounts
-  useEffect(() => {
-    if (!autoConnectAttempted && !isConnected && !isConnecting) {
-      setAutoConnectAttempted(true);
-      handleConnect();
-    }
-  }, [autoConnectAttempted, isConnected, isConnecting]);
-
-  // Auto-join session when connected
-  useEffect(() => {
-    if (isConnected && !isInSession && !isJoining && autoConnectAttempted) {
-      handleJoinSession();
-    }
-  }, [isConnected, isInSession, isJoining, autoConnectAttempted]);
-
-  // Notify parent of connection changes
-  useEffect(() => {
-    onConnectionChange?.(isInSession);
-  }, [isInSession, onConnectionChange]);
-
-  const handleConnect = async () => {
+  const handleConnect = useCallback(async () => {
     try {
       await connect();
     } catch (error) {
       console.error('Failed to connect:', error);
     }
-  };
+  }, [connect]);
 
-  const handleJoinSession = async () => {
+  const handleJoinSession = useCallback(async () => {
     if (!isConnected || isJoining) return;
 
     setIsJoining(true);
@@ -76,7 +56,27 @@ export function SessionConnection({
     } finally {
       setIsJoining(false);
     }
-  };
+  }, [isConnected, isJoining, joinSession, sessionId, userInfo]);
+
+  // Auto-connect when component mounts
+  useEffect(() => {
+    if (!autoConnectAttempted && !isConnected && !isConnecting) {
+      setAutoConnectAttempted(true);
+      handleConnect();
+    }
+  }, [autoConnectAttempted, isConnected, isConnecting, handleConnect]);
+
+  // Auto-join session when connected
+  useEffect(() => {
+    if (isConnected && !isInSession && !isJoining && autoConnectAttempted) {
+      handleJoinSession();
+    }
+  }, [isConnected, isInSession, isJoining, autoConnectAttempted, handleJoinSession]);
+
+  // Notify parent of connection changes
+  useEffect(() => {
+    onConnectionChange?.(isInSession);
+  }, [isInSession, onConnectionChange]);
 
   const handleLeaveSession = async () => {
     if (!isInSession || isLeaving) return;

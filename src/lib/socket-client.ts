@@ -1,4 +1,7 @@
-import { io, Socket } from 'socket.io-client';
+import io from 'socket.io-client';
+
+// Type for the socket instance
+type SocketInstance = ReturnType<typeof io>;
 
 export interface ParticipantInfo {
   id: string;
@@ -55,13 +58,13 @@ export interface SocketEvents {
 }
 
 class SocketClient {
-  private socket: Socket | null = null;
+  private socket: SocketInstance | null = null;
   private isConnecting = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
 
-  connect(): Promise<Socket> {
+  connect(): Promise<SocketInstance> {
     return new Promise((resolve, reject) => {
       if (this.socket?.connected) {
         resolve(this.socket);
@@ -106,20 +109,20 @@ class SocketClient {
         resolve(this.socket!);
       });
 
-      this.socket.on('connect_error', (error) => {
+      this.socket.on('connect_error', (error: Error) => {
         console.error('Socket connection error:', error);
         this.isConnecting = false;
         this.reconnectAttempts++;
-        
+
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           reject(new Error(`Failed to connect after ${this.maxReconnectAttempts} attempts`));
         }
       });
 
-      this.socket.on('disconnect', (reason) => {
+      this.socket.on('disconnect', (reason: string) => {
         console.log('Socket disconnected:', reason);
         this.isConnecting = false;
-        
+
         // Attempt to reconnect if disconnection was unexpected
         if (reason === 'io server disconnect') {
           // Server initiated disconnect, don't reconnect automatically
@@ -130,12 +133,12 @@ class SocketClient {
         }
       });
 
-      this.socket.on('reconnect', (attemptNumber) => {
+      this.socket.on('reconnect', (attemptNumber: number) => {
         console.log('Socket reconnected after', attemptNumber, 'attempts');
         this.reconnectAttempts = 0;
       });
 
-      this.socket.on('reconnect_error', (error) => {
+      this.socket.on('reconnect_error', (error: Error) => {
         console.error('Socket reconnection error:', error);
       });
 
@@ -189,7 +192,7 @@ class SocketClient {
   }
 
   leaveSession() {
-    this.emit('leave-session', undefined as any);
+    this.emit('leave-session', undefined);
   }
 
   updateCursor(line: number, column: number) {

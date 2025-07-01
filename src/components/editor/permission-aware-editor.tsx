@@ -17,7 +17,6 @@ import {
 import { cn } from '@/lib/utils';
 import { usePermissions, WithPermission } from '@/hooks/use-permissions';
 import { Permission, getRoleDisplayName, getRoleColor } from '@/lib/permissions';
-import type { ParticipantRole } from '@/types';
 
 interface PermissionAwareEditorProps {
   code: string;
@@ -67,7 +66,6 @@ export function PermissionAwareEditor({
     }
   };
 
-  const canExecute = hasPermission(Permission.EXECUTE_CODE);
   const canView = hasPermission(Permission.VIEW_CODE);
 
   if (!canView) {

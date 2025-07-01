@@ -2,6 +2,7 @@
 
 import React, { Suspense, lazy } from 'react';
 import { Loader2 } from 'lucide-react';
+import type * as monaco from 'monaco-editor';
 
 // Lazy load Monaco Editor to reduce initial bundle size
 const MonacoEditor = lazy(() => 
@@ -15,7 +16,7 @@ interface LazyMonacoEditorProps {
   readOnly?: boolean;
   height?: string;
   theme?: 'light' | 'dark';
-  onMount?: (editor: any, monaco: any) => void;
+  onMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void;
   onFocus?: () => void;
   onBlur?: () => void;
   loading?: boolean;

@@ -1,22 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Play, 
-  Pause, 
-  Square, 
-  Video, 
-  Download, 
-  Share2, 
+import {
+  Play,
+  Pause,
+  Square,
+  Video,
+  Download,
+  Share2,
   Clock,
   Eye,
   EyeOff,
-  Trash2,
-  Settings
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionRecording, CreateRecordingData } from '@/types';
@@ -37,31 +36,9 @@ export function SessionRecording({
   const [isPaused, setIsPaused] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    fetchRecordings();
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      intervalRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRecording, isPaused]);
-
-  const fetchRecordings = async () => {
+  const fetchRecordings = useCallback(async () => {
     try {
       // TODO: Replace with actual API call
       const mockRecordings: SessionRecording[] = [
@@ -82,7 +59,29 @@ export function SessionRecording({
     } catch (error) {
       console.error('Failed to fetch recordings:', error);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    fetchRecordings();
+  }, [fetchRecordings]);
+
+  useEffect(() => {
+    if (isRecording && !isPaused) {
+      intervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isRecording, isPaused]);
 
   const startRecording = async () => {
     try {
