@@ -52,7 +52,7 @@ export interface NetworkError {
   severity: ErrorSeverity;
   message: string;
   timestamp: number;
-  context: any;
+  context: unknown;
   retryCount: number;
   maxRetries: number;
   recoveryStrategy: RecoveryStrategy;
@@ -109,7 +109,7 @@ export class NetworkErrorHandler {
   private circuitBreakerFailures: number = 0;
   private circuitBreakerLastFailure: number = 0;
   private errorQueue: NetworkError[] = [];
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
   private retryTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(config: Partial<ErrorHandlingConfig> = {}) {
@@ -145,7 +145,7 @@ export class NetworkErrorHandler {
    */
   async handleError(
     error: Error | NetworkError,
-    context?: any
+    context?: unknown
   ): Promise<{ recovered: boolean; strategy: RecoveryStrategy }> {
     const networkError = this.normalizeError(error, context);
     
@@ -223,7 +223,7 @@ export class NetworkErrorHandler {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -233,7 +233,7 @@ export class NetworkErrorHandler {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -246,7 +246,7 @@ export class NetworkErrorHandler {
   /**
    * Normalize error to NetworkError format
    */
-  private normalizeError(error: Error | NetworkError, context?: any): NetworkError {
+  private normalizeError(error: Error | NetworkError, context?: unknown): NetworkError {
     if (this.isNetworkError(error)) {
       return error as NetworkError;
     }
@@ -271,8 +271,8 @@ export class NetworkErrorHandler {
   /**
    * Check if error is already a NetworkError
    */
-  private isNetworkError(error: any): boolean {
-    return error && typeof error === 'object' && 'type' in error && 'severity' in error;
+  private isNetworkError(error: unknown): boolean {
+    return Boolean(error && typeof error === 'object' && 'type' in error && 'severity' in error);
   }
 
   /**
@@ -424,7 +424,7 @@ export class NetworkErrorHandler {
   /**
    * Execute reconnect strategy
    */
-  private async executeReconnect(error: NetworkError): Promise<boolean> {
+  private async executeReconnect(_error: NetworkError): Promise<boolean> {
     // In a real implementation, this would trigger a reconnection
     // For now, we'll simulate reconnection
     return new Promise((resolve) => {
@@ -437,7 +437,7 @@ export class NetworkErrorHandler {
   /**
    * Execute fallback strategy
    */
-  private async executeFallback(error: NetworkError): Promise<boolean> {
+  private async executeFallback(_error: NetworkError): Promise<boolean> {
     if (!this.config.enableFallback) {
       return false;
     }
@@ -566,13 +566,13 @@ export class NetworkErrorHandler {
    * Generate unique error ID
    */
   private generateErrorId(): string {
-    return `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `error-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => {

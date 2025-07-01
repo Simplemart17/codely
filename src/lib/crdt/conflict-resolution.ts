@@ -593,7 +593,7 @@ export class ConflictResolver {
       const insertPatterns = analysis.semanticContext.insertPatterns || [];
 
       // Can auto-merge if all inserts are comments or whitespace
-      return insertPatterns.every((pattern: any) =>
+      return insertPatterns.every((pattern) =>
         pattern.type === 'comment' || pattern.type === 'whitespace'
       );
     }
@@ -613,7 +613,7 @@ export class ConflictResolver {
 
     // Increase confidence for simple patterns
     const patterns = analysis.semanticContext.insertPatterns || [];
-    const simplePatterns = patterns.filter((p: any) =>
+    const simplePatterns = patterns.filter((p) =>
       p.type === 'whitespace' || p.type === 'comment'
     );
 
@@ -669,14 +669,14 @@ export class ConflictResolver {
       ...sortedOps[0],
       content: mergedContent,
       timestamp: Date.now()
-    } as any;
+    } as unknown as Operation;
   }
 
   /**
    * Merge content semantically
    */
   private mergeContentSemantically(operations: Operation[], analysis: SemanticAnalysis): string {
-    const contents = operations.map(op => (op as any).content || '');
+    const contents = operations.map(op => (op as { content?: string }).content || '');
     const patterns = analysis.semanticContext.insertPatterns || [];
 
     // Group by pattern type
@@ -712,7 +712,7 @@ export class ConflictResolver {
     const patterns = analysis.semanticContext.insertPatterns || [];
 
     // If all inserts are whitespace, merge them
-    if (patterns.every((p: any) => p.type === 'whitespace')) {
+    if (patterns.every((p) => p.type === 'whitespace')) {
       return this.resolveMergeContent(conflict);
     }
 
@@ -723,11 +723,11 @@ export class ConflictResolver {
   /**
    * Resolve delete conflict intelligently
    */
-  private resolveDeleteConflictIntelligently(conflict: Conflict, analysis: SemanticAnalysis): ConflictResolution {
+  private resolveDeleteConflictIntelligently(conflict: Conflict, _analysis: SemanticAnalysis): ConflictResolution {
     // For delete conflicts, prefer the larger deletion (more comprehensive change)
     const deleteOps = conflict.operations.filter(op => op.type === OperationType.DELETE);
     const largestDelete = deleteOps.reduce((largest, current) =>
-      ((current as any).length || 0) > ((largest as any).length || 0) ? current : largest
+      ((current as { length?: number }).length || 0) > ((largest as { length?: number }).length || 0) ? current : largest
     );
 
     const discardedOps = conflict.operations.filter(op => op !== largestDelete);
@@ -765,7 +765,7 @@ export class ConflictResolver {
   /**
    * Calculate operation priority for conflict resolution
    */
-  private calculateOperationPriority(operation: Operation, analysis: SemanticAnalysis): number {
+  private calculateOperationPriority(operation: Operation, _analysis: SemanticAnalysis): number {
     let priority = 1;
 
     // Higher priority for inserts over deletes
@@ -774,7 +774,7 @@ export class ConflictResolver {
     }
 
     // Higher priority for code content
-    const content = (operation as any).content || '';
+    const content = (operation as { content?: string }).content || '';
     if (this.isCodeBlock(content)) {
       priority += 3;
     } else if (this.isComment(content)) {
@@ -788,7 +788,7 @@ export class ConflictResolver {
    * Extract merged content from operation
    */
   private extractMergedContent(operation: Operation): string {
-    return (operation as any).content || '';
+    return (operation as { content?: string }).content || '';
   }
 
   /**
@@ -830,8 +830,8 @@ export class ConflictResolver {
   /**
    * Extract semantic tokens from content
    */
-  private extractSemanticTokens(content: string): any[] {
-    const tokens: any[] = [];
+  private extractSemanticTokens(content: string): Array<{ type: string; value: string }> {
+    const tokens: Array<{ type: string; value: string }> = [];
 
     // Simple tokenization
     const words = content.split(/\s+/).filter(word => word.length > 0);
@@ -879,7 +879,7 @@ export class ConflictResolver {
    * Classify delete operation type
    */
   private classifyDeleteOperation(operation: Operation): string {
-    const length = (operation as any).length || 0;
+    const length = (operation as { length?: number }).length || 0;
 
     if (length === 1) {
       return 'character_delete';

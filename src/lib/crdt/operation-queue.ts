@@ -76,7 +76,7 @@ export class OperationQueue {
   private batchTimer: NodeJS.Timeout | null = null;
   private isProcessing: boolean = false;
   private stats: QueueStats;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
 
   constructor(config: Partial<QueueConfig> = {}) {
     this.config = {
@@ -306,7 +306,7 @@ export class OperationQueue {
   /**
    * Add event listener
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -316,7 +316,7 @@ export class OperationQueue {
   /**
    * Remove event listener
    */
-  off(event: string, callback: Function): void {
+  off(event: string, callback: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -391,7 +391,7 @@ export class OperationQueue {
           // Simulate operation processing
           await this.processOperation(operation);
           processedOperations.push(operation);
-        } catch (error) {
+        } catch {
           failedOperations.push(operation);
         }
       }
@@ -418,7 +418,7 @@ export class OperationQueue {
   /**
    * Process individual operation
    */
-  private async processOperation(operation: Operation): Promise<void> {
+  private async processOperation(_operation: Operation): Promise<void> {
     // Simulate operation processing delay
     await new Promise(resolve => setTimeout(resolve, 1));
     
@@ -463,7 +463,7 @@ export class OperationQueue {
       op1.userId === op2.userId &&
       op1.sessionId === op2.sessionId &&
       op1.type === OperationType.INSERT &&
-      op2.position === op1.position + (op1 as any).content?.length
+      op2.position === op1.position + ((op1 as { content?: string }).content?.length || 0)
     );
   }
 
@@ -474,9 +474,9 @@ export class OperationQueue {
     if (op1.type === OperationType.INSERT && op2.type === OperationType.INSERT) {
       return {
         ...op1,
-        content: (op1 as any).content + (op2 as any).content,
+        content: ((op1 as { content?: string }).content || '') + ((op2 as { content?: string }).content || ''),
         timestamp: Math.max(op1.timestamp, op2.timestamp)
-      } as any;
+      } as unknown as Operation;
     }
     return op2;
   }
@@ -501,7 +501,7 @@ export class OperationQueue {
    * Generate unique batch ID
    */
   private generateBatchId(): string {
-    return `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `batch-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
@@ -535,7 +535,7 @@ export class OperationQueue {
   /**
    * Emit event
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => {
