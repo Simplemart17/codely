@@ -17,7 +17,7 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   userId?: string;
   sessionId?: string;
   component?: string;
@@ -36,7 +36,7 @@ export interface PerformanceMetric {
   value: number;
   unit: string;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // User activity tracking
@@ -46,7 +46,7 @@ export interface UserActivity {
   action: string;
   component: string;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Logger class
@@ -75,7 +75,7 @@ class Logger {
   private createLogEntry(
     level: LogLevel,
     message: string,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     error?: Error
   ): LogEntry {
     return {
@@ -86,9 +86,9 @@ class Logger {
       context,
       userId: this.getCurrentUserId(),
       sessionId: this.getCurrentSessionId(),
-      component: context?.component,
-      action: context?.action,
-      duration: context?.duration,
+      component: context?.component as string | undefined,
+      action: context?.action as string | undefined,
+      duration: context?.duration as number | undefined,
       error: error ? {
         name: error.name,
         message: error.message,
@@ -98,7 +98,7 @@ class Logger {
   }
 
   private generateId(): string {
-    return `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `log_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private getCurrentUserId(): string | undefined {
@@ -154,7 +154,7 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: Record<string, any>): void {
+  debug(message: string, context?: Record<string, unknown>): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
     
     const entry = this.createLogEntry(LogLevel.DEBUG, message, context);
@@ -162,7 +162,7 @@ class Logger {
     console.debug(this.formatLogMessage(entry), context);
   }
 
-  info(message: string, context?: Record<string, any>): void {
+  info(message: string, context?: Record<string, unknown>): void {
     if (!this.shouldLog(LogLevel.INFO)) return;
     
     const entry = this.createLogEntry(LogLevel.INFO, message, context);
@@ -170,7 +170,7 @@ class Logger {
     console.info(this.formatLogMessage(entry), context);
   }
 
-  warn(message: string, context?: Record<string, any>): void {
+  warn(message: string, context?: Record<string, unknown>): void {
     if (!this.shouldLog(LogLevel.WARN)) return;
     
     const entry = this.createLogEntry(LogLevel.WARN, message, context);
@@ -179,7 +179,7 @@ class Logger {
     this.sendToMonitoring(entry);
   }
 
-  error(message: string, error?: Error, context?: Record<string, any>): void {
+  error(message: string, error?: Error, context?: Record<string, unknown>): void {
     if (!this.shouldLog(LogLevel.ERROR)) return;
     
     const entry = this.createLogEntry(LogLevel.ERROR, message, context, error);
@@ -188,7 +188,7 @@ class Logger {
     this.sendToMonitoring(entry);
   }
 
-  critical(message: string, error?: Error, context?: Record<string, any>): void {
+  critical(message: string, error?: Error, context?: Record<string, unknown>): void {
     const entry = this.createLogEntry(LogLevel.CRITICAL, message, context, error);
     this.addToLogs(entry);
     console.error(`🚨 CRITICAL: ${this.formatLogMessage(entry)}`, error, context);
@@ -224,7 +224,7 @@ class PerformanceMonitor {
     return PerformanceMonitor.instance;
   }
 
-  recordMetric(name: string, value: number, unit: string = 'ms', context?: Record<string, any>): void {
+  recordMetric(name: string, value: number, unit: string = 'ms', context?: Record<string, unknown>): void {
     const metric: PerformanceMetric = {
       name,
       value,
@@ -296,7 +296,7 @@ class ActivityTracker {
     return ActivityTracker.instance;
   }
 
-  track(action: string, component: string, metadata?: Record<string, any>): void {
+  track(action: string, component: string, metadata?: Record<string, unknown>): void {
     const userId = this.getCurrentUserId();
     if (!userId) return;
 
@@ -372,7 +372,7 @@ export const activityTracker = ActivityTracker.getInstance();
 export const measureAsync = async <T>(
   fn: () => Promise<T>,
   name: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): Promise<T> => {
   const startTime = performance.now();
   logger.debug(`Starting ${name}`, context);
@@ -395,7 +395,7 @@ export const measureAsync = async <T>(
 export const measureSync = <T>(
   fn: () => T,
   name: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): T => {
   const startTime = performance.now();
   logger.debug(`Starting ${name}`, context);
@@ -420,10 +420,12 @@ export const useLogger = () => logger;
 export const usePerformanceMonitor = () => performanceMonitor;
 export const useActivityTracker = () => activityTracker;
 
-export default {
+const monitoringExports = {
   logger,
   performanceMonitor,
   activityTracker,
   measureAsync,
   measureSync,
 };
+
+export default monitoringExports;

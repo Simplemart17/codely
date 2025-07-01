@@ -30,7 +30,7 @@ export interface AppError {
   details?: string;
   code?: string;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   stack?: string;
   userMessage?: string;
   retryable?: boolean;
@@ -49,7 +49,7 @@ export class CodelyError extends Error {
   public readonly type: ErrorType;
   public readonly severity: ErrorSeverity;
   public readonly code?: string;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
   public readonly userMessage?: string;
   public readonly retryable: boolean;
 
@@ -59,7 +59,7 @@ export class CodelyError extends Error {
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     options: {
       code?: string;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       userMessage?: string;
       retryable?: boolean;
       cause?: Error;
@@ -81,7 +81,7 @@ export class CodelyError extends Error {
   }
 
   private generateId(): string {
-    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private getDefaultUserMessage(): string {
@@ -129,7 +129,7 @@ export class CodelyError extends Error {
 
 // Specific error classes
 export class NetworkError extends CodelyError {
-  constructor(message: string, options?: { code?: string; context?: Record<string, any> }) {
+  constructor(message: string, options?: { code?: string; context?: Record<string, unknown> }) {
     super(message, ErrorType.NETWORK, ErrorSeverity.MEDIUM, {
       ...options,
       retryable: true,
@@ -138,7 +138,7 @@ export class NetworkError extends CodelyError {
 }
 
 export class ValidationError extends CodelyError {
-  constructor(message: string, field?: string, value?: any) {
+  constructor(message: string, field?: string, value?: unknown) {
     super(message, ErrorType.VALIDATION, ErrorSeverity.LOW, {
       context: { field, value },
       retryable: false,
@@ -172,7 +172,7 @@ export class SessionError extends CodelyError {
 }
 
 export class EditorError extends CodelyError {
-  constructor(message: string, editorContext?: Record<string, any>) {
+  constructor(message: string, editorContext?: Record<string, unknown>) {
     super(message, ErrorType.EDITOR, ErrorSeverity.MEDIUM, {
       context: editorContext,
       retryable: true,
@@ -211,7 +211,7 @@ export class ErrorHandler {
     return ErrorHandler.instance;
   }
 
-  handle(error: Error | CodelyError, context?: Record<string, any>): AppError {
+  handle(error: Error | CodelyError, context?: Record<string, unknown>): AppError {
     let appError: AppError;
 
     if (error instanceof CodelyError) {
@@ -244,7 +244,7 @@ export class ErrorHandler {
   }
 
   private generateId(): string {
-    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private classifyError(error: Error): ErrorType {
@@ -335,7 +335,7 @@ export class ErrorHandler {
 }
 
 // Utility functions
-export const handleError = (error: Error | CodelyError, context?: Record<string, any>): AppError => {
+export const handleError = (error: Error | CodelyError, context?: Record<string, unknown>): AppError => {
   return ErrorHandler.getInstance().handle(error, context);
 };
 
@@ -368,7 +368,7 @@ export const useErrorHandler = () => {
   const handler = ErrorHandler.getInstance();
 
   return {
-    handleError: (error: Error | CodelyError, context?: Record<string, any>) => 
+    handleError: (error: Error | CodelyError, context?: Record<string, unknown>) =>
       handler.handle(error, context),
     getRecentErrors: () => handler.getRecentErrors(),
     clearErrors: () => handler.clearErrors(),
