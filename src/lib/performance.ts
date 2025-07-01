@@ -2,6 +2,8 @@
  * Performance monitoring and optimization utilities
  */
 
+import { useEffect } from 'react';
+
 // Performance metrics interface
 export interface PerformanceMetrics {
   // Core Web Vitals
@@ -42,7 +44,7 @@ class PerformanceMonitor {
       try {
         const lcpObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1] as any;
+          const lastEntry = entries[entries.length - 1] as PerformanceEntry & { startTime: number };
           this.metrics.lcp = lastEntry.startTime;
           this.reportMetric('lcp', lastEntry.startTime);
         });
@@ -56,8 +58,9 @@ class PerformanceMonitor {
       try {
         const fidObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            this.metrics.fid = entry.processingStart - entry.startTime;
+          entries.forEach((entry) => {
+            const fidEntry = entry as PerformanceEntry & { processingStart: number };
+            this.metrics.fid = fidEntry.processingStart - fidEntry.startTime;
             this.reportMetric('fid', this.metrics.fid);
           });
         });
@@ -72,9 +75,10 @@ class PerformanceMonitor {
         let clsValue = 0;
         const clsObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (!entry.hadRecentInput) {
-              clsValue += entry.value;
+          entries.forEach((entry) => {
+            const clsEntry = entry as PerformanceEntry & { hadRecentInput: boolean; value: number };
+            if (!clsEntry.hadRecentInput) {
+              clsValue += clsEntry.value;
             }
           });
           this.metrics.cls = clsValue;
@@ -135,7 +139,7 @@ class PerformanceMonitor {
   }
 
   // Report metric to analytics service
-  private reportMetric(name: string, value: number) {
+  public reportMetric(name: string, value: number) {
     if (process.env.NODE_ENV === 'production') {
       // In production, send to analytics service
       console.log(`Performance metric: ${name} = ${value}ms`);
@@ -209,7 +213,7 @@ export const measureSync = <T>(
 export const usePerformanceMonitor = () => {
   const monitor = getPerformanceMonitor();
   
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       // Clean up on unmount
       monitor.disconnect();
@@ -242,7 +246,7 @@ export const analyzeBundleSize = () => {
     
     jsResources.forEach(resource => {
       const size = (resource.transferSize || 0) / 1024;
-      const loadTime = resource.loadEnd - resource.loadStart;
+      const loadTime = resource.responseEnd - resource.requestStart;
       console.log(`  ${resource.name.split('/').pop()}: ${size.toFixed(2)} KB (${loadTime.toFixed(2)}ms)`);
     });
     
@@ -251,7 +255,7 @@ export const analyzeBundleSize = () => {
       resources: jsResources.map(resource => ({
         name: resource.name,
         size: resource.transferSize || 0,
-        loadTime: resource.loadEnd - resource.loadStart,
+        loadTime: resource.responseEnd - resource.requestStart,
       })),
     };
   }

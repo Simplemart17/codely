@@ -3,9 +3,33 @@ import { Server as NetServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { Socket } from 'socket.io';
 
+// Define Socket.io event types
+interface ClientToServerEvents {
+  'join-session': (data: { sessionId: string; userInfo: ParticipantInfo }) => void;
+  'leave-session': () => void;
+  'cursor-update': (data: { line: number; column: number }) => void;
+  'activity-status': (data: { isActive: boolean }) => void;
+}
+
+interface ServerToClientEvents {
+  'session-joined': (data: { sessionId: string; participants: ParticipantInfo[] }) => void;
+  'user-joined': (data: { user: ParticipantInfo; participants: ParticipantInfo[] }) => void;
+  'user-left': (data: { userId: string; user: ParticipantInfo; participants: ParticipantInfo[] }) => void;
+  'cursor-moved': (data: { userId: string; cursor: { line: number; column: number } }) => void;
+  'user-activity-changed': (data: { userId: string; isActive: boolean }) => void;
+  'error': (data: { message: string }) => void;
+}
+
+interface InterServerEvents {
+  // Add inter-server events if needed
+}
+
+// Type alias for the typed Socket.io server
+type TypedSocketIOServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
+
 // Extend the global object to store the Socket.io server instance
 declare global {
-  var io: SocketIOServer | undefined;
+  var socketIOServerInstance: TypedSocketIOServer | undefined;
 }
 
 interface SessionRoom {
@@ -38,20 +62,24 @@ interface SocketData {
 const activeSessions = new Map<string, SessionRoom>();
 
 // Initialize Socket.io server
-function initializeSocketServer(httpServer: NetServer): SocketIOServer {
-  const io = new SocketIOServer(httpServer, {
+export function initializeSocketServer(httpServer: NetServer): TypedSocketIOServer {
+  if (global.socketIOServerInstance) {
+    return global.socketIOServerInstance;
+  }
+
+  const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(httpServer, {
     path: '/api/socket',
     addTrailingSlash: false,
     cors: {
-      origin: process.env.NODE_ENV === 'production' 
-        ? process.env.NEXT_PUBLIC_APP_URL 
+      origin: process.env.NODE_ENV === 'production'
+        ? process.env.NEXT_PUBLIC_APP_URL
         : ['http://localhost:3000', 'http://127.0.0.1:3000'],
       methods: ['GET', 'POST'],
       credentials: true,
     },
   });
 
-  io.on('connection', (socket: Socket<any, any, any, SocketData>) => {
+  io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
     console.log('Client connected:', socket.id);
 
     // Handle user joining a session
@@ -172,11 +200,14 @@ function initializeSocketServer(httpServer: NetServer): SocketIOServer {
     });
   });
 
+  // Store the server instance globally
+  global.socketIOServerInstance = io;
+
   return io;
 }
 
 // Helper function to handle user leaving
-async function handleUserLeave(socket: Socket<any, any, any, SocketData>) {
+async function handleUserLeave(socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
   if (socket.data?.sessionId && socket.data?.userId) {
     const { sessionId, userId, userInfo } = socket.data;
     const session = activeSessions.get(sessionId);
@@ -220,10 +251,10 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // Check every 5 minutes
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   return new Response('Socket.io server is running', { status: 200 });
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   return new Response('Socket.io server is running', { status: 200 });
 }
