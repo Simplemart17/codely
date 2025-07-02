@@ -66,6 +66,12 @@ class SocketClient {
 
   connect(): Promise<SocketInstance> {
     return new Promise((resolve, reject) => {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        reject(new Error('Socket connection can only be established in browser environment'));
+        return;
+      }
+
       if (this.socket?.connected) {
         resolve(this.socket);
         return;
@@ -180,6 +186,7 @@ class SocketClient {
   }
 
   get connected(): boolean {
+    if (typeof window === 'undefined') return false;
     return this.socket?.connected || false;
   }
 
