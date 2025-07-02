@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionCreation } from '../session-creation';
 
@@ -15,7 +15,7 @@ jest.mock('next/navigation', () => ({
 // Mock API calls
 const mockCreateSession = jest.fn();
 jest.mock('@/lib/api', () => ({
-  createSession: (...args: any[]) => mockCreateSession(...args),
+  createSession: (...args: unknown[]) => mockCreateSession(...args),
 }));
 
 describe('SessionCreation', () => {
@@ -145,7 +145,7 @@ describe('SessionCreation', () => {
 
   it('shows loading state during creation', async () => {
     const user = userEvent.setup();
-    let resolvePromise: (value: any) => void;
+    let resolvePromise: (value: unknown) => void;
     const promise = new Promise(resolve => {
       resolvePromise = resolve;
     });

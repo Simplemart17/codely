@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { X, AlertTriangle, AlertCircle, Info, CheckCircle, RefreshCw } from 'lucide-react';
-import { AppError, ErrorSeverity, ErrorAction } from '@/lib/error-handling';
+import React, { createContext, useContext, useReducer } from 'react';
+import { X, AlertTriangle, AlertCircle, Info, CheckCircle } from 'lucide-react';
+import { AppError, ErrorSeverity, ErrorAction, ErrorType } from '@/lib/error-handling';
 
 // Notification types
 export type NotificationType = 'error' | 'warning' | 'info' | 'success';
@@ -321,7 +321,7 @@ export const useErrorNotifications = () => {
     showError,
     showNetworkError: () => showError({
       id: 'network',
-      type: 'NETWORK' as any,
+      type: ErrorType.NETWORK,
       severity: ErrorSeverity.MEDIUM,
       message: 'Network error occurred',
       userMessage: 'Please check your internet connection and try again.',
@@ -330,7 +330,7 @@ export const useErrorNotifications = () => {
     }),
     showSessionError: () => showError({
       id: 'session',
-      type: 'SESSION' as any,
+      type: ErrorType.SESSION,
       severity: ErrorSeverity.HIGH,
       message: 'Session expired',
       userMessage: 'Your session has expired. Please log in again.',
