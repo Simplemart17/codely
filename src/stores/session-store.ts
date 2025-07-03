@@ -103,23 +103,27 @@ export const useSessionStore = create<SessionState>()(
       joinSession: async (sessionId, userId) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Replace with actual API call
-          const participant: SessionParticipant = {
-            id: `participant_${Date.now()}`,
-            userId,
-            sessionId,
-            role: 'LEARNER',
-            joinedAt: new Date(),
-            isActive: true,
-            cursorPosition: null,
-          };
-          
+          // Call API to join session
+          const response = await fetch(`/api/sessions/${sessionId}/join`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to join session');
+          }
+
+          const { participant } = await response.json();
           get().addParticipant(participant);
           set({ isLoading: false });
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Failed to join session',
-            isLoading: false 
+            isLoading: false
           });
           throw error;
         }
@@ -128,13 +132,26 @@ export const useSessionStore = create<SessionState>()(
       leaveSession: async (sessionId, userId) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Replace with actual API call
+          // Call API to leave session
+          const response = await fetch(`/api/sessions/${sessionId}/leave`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to leave session');
+          }
+
           get().removeParticipant(userId);
           set({ isLoading: false });
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Failed to leave session',
-            isLoading: false 
+            isLoading: false
           });
           throw error;
         }
@@ -143,22 +160,37 @@ export const useSessionStore = create<SessionState>()(
       updateSession: async (sessionId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Replace with actual API call
+          // Call API to update session
+          const response = await fetch(`/api/sessions/${sessionId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update session');
+          }
+
+          const { session: updatedSession } = await response.json();
+
           set((state) => ({
-            currentSession: state.currentSession?.id === sessionId 
-              ? { ...state.currentSession, ...updates, updatedAt: new Date() }
+            currentSession: state.currentSession?.id === sessionId
+              ? updatedSession
               : state.currentSession,
             userSessions: state.userSessions.map(session =>
-              session.id === sessionId 
-                ? { ...session, ...updates, updatedAt: new Date() }
+              session.id === sessionId
+                ? updatedSession
                 : session
             ),
             isLoading: false
           }));
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Failed to update session',
-            isLoading: false 
+            isLoading: false
           });
           throw error;
         }
@@ -167,16 +199,25 @@ export const useSessionStore = create<SessionState>()(
       deleteSession: async (sessionId) => {
         set({ isLoading: true, error: null });
         try {
-          // TODO: Replace with actual API call
+          // Call API to delete session
+          const response = await fetch(`/api/sessions/${sessionId}`, {
+            method: 'DELETE',
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete session');
+          }
+
           set((state) => ({
             userSessions: state.userSessions.filter(session => session.id !== sessionId),
             currentSession: state.currentSession?.id === sessionId ? null : state.currentSession,
             isLoading: false
           }));
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Failed to delete session',
-            isLoading: false 
+            isLoading: false
           });
           throw error;
         }
