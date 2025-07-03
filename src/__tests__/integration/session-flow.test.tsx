@@ -20,16 +20,16 @@ const mockUpdateCode = jest.fn();
 const mockExecuteCode = jest.fn();
 
 jest.mock('@/lib/api', () => ({
-  getSession: (...args: any[]) => mockGetSession(...args),
-  joinSession: (...args: any[]) => mockJoinSession(...args),
-  updateCode: (...args: any[]) => mockUpdateCode(...args),
-  executeCode: (...args: any[]) => mockExecuteCode(...args),
+  getSession: (...args: unknown[]) => mockGetSession(...args),
+  joinSession: (...args: unknown[]) => mockJoinSession(...args),
+  updateCode: (...args: unknown[]) => mockUpdateCode(...args),
+  executeCode: (...args: unknown[]) => mockExecuteCode(...args),
 }));
 
 // Mock Monaco Editor
 jest.mock('@monaco-editor/react', () => ({
   __esModule: true,
-  default: ({ value, onChange, onMount }: any) => {
+  default: function MockMonacoEditor({ value, onChange, onMount }: unknown) {
     React.useEffect(() => {
       if (onMount) {
         const mockEditor = {
@@ -214,8 +214,8 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('handles real-time collaboration', async () => {
-    const user = userEvent.setup();
-    
+    userEvent.setup();
+
     render(<SessionPage />);
 
     await waitFor(() => {
@@ -235,7 +235,7 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('handles participant management', async () => {
-    const user = userEvent.setup();
+    userEvent.setup();
     
     // Mock session with multiple participants
     const sessionWithParticipants = {
@@ -330,7 +330,7 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('handles session permissions correctly', async () => {
-    const user = userEvent.setup();
+    userEvent.setup();
     
     // Mock session where user is a learner (not instructor)
     const sessionAsLearner = {

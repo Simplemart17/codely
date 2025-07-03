@@ -155,7 +155,7 @@ describe('CRDT Performance Tests', () => {
       // Queue 5000 operations
       for (let i = 0; i < 5000; i++) {
         const success = operationQueue.enqueue({
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: i,
           content: `Content ${i}`,
           timestamp: Date.now(),
@@ -186,7 +186,7 @@ describe('CRDT Performance Tests', () => {
       // Queue operations
       for (let i = 0; i < 500; i++) {
         operationQueue.enqueue({
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: i,
           content: `Content ${i}`,
           timestamp: Date.now(),
@@ -223,7 +223,7 @@ describe('CRDT Performance Tests', () => {
       for (let i = 0; i < 1000; i++) {
         const priority = i % 4; // Cycle through priorities 0-3
         operationQueue.enqueue({
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: i,
           content: `Content ${i}`,
           timestamp: Date.now(),
@@ -267,7 +267,7 @@ describe('CRDT Performance Tests', () => {
       const broadcastPromises = [];
       for (let i = 0; i < 1000; i++) {
         const promise = broadcaster.broadcastOperation({
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: i,
           content: `Content ${i}`,
           timestamp: Date.now(),
@@ -312,7 +312,7 @@ describe('CRDT Performance Tests', () => {
 
       // Broadcast to all users
       await broadcaster.broadcastOperation({
-        type: 'INSERT' as any,
+        type: 'INSERT' as unknown,
         position: 0,
         content: 'Broadcast to all',
         timestamp: Date.now(),
@@ -348,7 +348,7 @@ describe('CRDT Performance Tests', () => {
 
       const syncStartTime = performance.now();
       const stateVector = stateSynchronizer.getStateVector();
-      const delta = stateSynchronizer.getDocumentDelta();
+      stateSynchronizer.getDocumentDelta();
       const syncTime = performance.now() - syncStartTime;
 
       expect(stateVector).toBeDefined();

@@ -2,7 +2,7 @@
  * Unit tests for CRDT Operations and Transformation
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import {
   OperationTransformer,
   OperationType,
@@ -390,7 +390,7 @@ describe('OperationTransformer', () => {
   describe('Error Handling', () => {
     it('should handle invalid operation types gracefully', () => {
       const invalidOp = {
-        type: 'INVALID' as any,
+        type: 'INVALID' as unknown,
         position: 5,
         timestamp: 1000,
         userId: 'user1',
@@ -477,7 +477,7 @@ describe('Operation Utilities', () => {
       };
 
       const operations = OperationTransformer.createOperationFromYEvent(
-        mockEvent as any,
+        mockEvent as unknown,
         'user1',
         'session1'
       );
@@ -495,7 +495,7 @@ describe('Operation Utilities', () => {
       };
 
       const operations = OperationTransformer.createOperationFromYEvent(
-        mockEvent as any,
+        mockEvent as unknown,
         'user1',
         'session1'
       );

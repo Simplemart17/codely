@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, lazy, memo, useMemo } from 'react';
-import { Loader2, Users, Play, Square } from 'lucide-react';
+import { Loader2, Users, Play } from 'lucide-react';
 import { usePerformanceMonitor } from '@/lib/performance';
 
 // Lazy load heavy components
@@ -25,6 +25,7 @@ const SessionRecording = lazy(() =>
 
 interface OptimizedSessionPageProps {
   sessionId: string;
+  isInstructor?: boolean;
   initialData?: {
     title: string;
     description: string;
@@ -190,6 +191,7 @@ const SessionPageSkeleton = () => (
 
 export const OptimizedSessionPage: React.FC<OptimizedSessionPageProps> = ({
   sessionId,
+  isInstructor = false,
   initialData,
 }) => {
   const { measureEditorLoadTime, measureCodeExecutionTime } = usePerformanceMonitor();
@@ -234,16 +236,17 @@ export const OptimizedSessionPage: React.FC<OptimizedSessionPageProps> = ({
   }, [isExecuting, measureCodeExecutionTime]);
 
   // Optimized editor mount handler
-  const handleEditorMount = React.useCallback((editor: any, monaco: any) => {
+  const handleEditorMount = React.useCallback((editor: unknown) => {
     const startTime = performance.now();
-    
-    // Configure editor
-    editor.updateOptions({
+
+    // Configure editor with type assertion
+    const monacoEditor = editor as { updateOptions: (options: Record<string, unknown>) => void };
+    monacoEditor.updateOptions({
       fontSize: 14,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
     });
-    
+
     measureEditorLoadTime(startTime);
   }, [measureEditorLoadTime]);
 
@@ -331,7 +334,7 @@ export const OptimizedSessionPage: React.FC<OptimizedSessionPageProps> = ({
                 <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
               </div>
             }>
-              <SessionRecording sessionId={sessionId} />
+              <SessionRecording sessionId={sessionId} isInstructor={isInstructor} />
             </Suspense>
           )}
         </div>

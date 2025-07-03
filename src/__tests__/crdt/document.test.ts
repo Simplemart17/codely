@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import * as Y from 'yjs';
 import { CRDTDocument, createCRDTDocument, generateUserColor } from '../../lib/crdt/document';
 import { CollaborativeUser } from '../../lib/crdt/document';
 
@@ -238,7 +237,7 @@ describe('CRDTDocument', () => {
       const mockEditor = null;
       
       expect(() => {
-        document.bindMonacoEditor(mockEditor as any);
+        document.bindMonacoEditor(mockEditor as unknown);
       }).toThrow();
     });
 

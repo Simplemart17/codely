@@ -1,9 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { 
-  Permission, 
-  PermissionContext, 
+import {
+  Permission,
   hasPermissionInContext,
   getRolePermissions,
   canEditCode,
@@ -14,6 +13,7 @@ import {
   canRestoreSnapshot,
   canViewAnalytics
 } from '@/lib/permissions';
+import type { PermissionContext } from '@/lib/permissions';
 import type { UserRole, ParticipantRole } from '@/types';
 
 interface PermissionProviderProps {
@@ -54,14 +54,14 @@ export function PermissionProvider({
   participantRole, 
   isSessionOwner 
 }: PermissionProviderProps) {
-  const context: PermissionContext = {
-    userRole,
-    participantRole,
-    isSessionOwner,
-  };
-
   const value = useMemo<PermissionHookReturn>(() => {
-    const hasPermissionCheck = (permission: Permission) => 
+    const context: PermissionContext = {
+      userRole,
+      participantRole,
+      isSessionOwner,
+    };
+
+    const hasPermissionCheck = (permission: Permission) =>
       hasPermissionInContext(permission, context);
 
     return {

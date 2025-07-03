@@ -84,7 +84,7 @@ describe('useSocket Hook', () => {
     jest.clearAllMocks();
     // Reset mock implementation
     mockSocketClient.connected = false;
-    mockSocketClient.connect.mockResolvedValue(mockSocketClient as any);
+    mockSocketClient.connect.mockResolvedValue(mockSocketClient as unknown);
   });
 
   it('should provide initial state', () => {

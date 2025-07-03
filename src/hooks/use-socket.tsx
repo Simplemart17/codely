@@ -40,6 +40,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<ParticipantInfo[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  // Check if we're on the client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Event callback refs
   const eventCallbacks = React.useRef<{
@@ -50,7 +56,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   }>({});
 
   const connect = useCallback(async () => {
-    if (isConnected || isConnecting) return;
+    if (!isClient || isConnected || isConnecting) return;
 
     setIsConnecting(true);
     setConnectionError(null);
@@ -66,7 +72,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnected, isConnecting]);
+  }, [isClient, isConnected, isConnecting]);
 
   const disconnect = useCallback(() => {
     socketClient.disconnect();
@@ -173,6 +179,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
   // Monitor connection status
   useEffect(() => {
+    if (!isClient) return;
+
     const checkConnection = () => {
       const connected = socketClient.connected;
       if (connected !== isConnected) {
@@ -186,7 +194,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     const interval = setInterval(checkConnection, 1000);
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [isClient, isConnected]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -196,7 +196,7 @@ describe('Multi-User CRDT Integration', () => {
 
       const selection = selectionSync.addSelection({
         userId: 'user2',
-        type: 'text' as any,
+        type: 'text' as unknown,
         startLine: 1,
         startColumn: 5,
         endLine: 1,
@@ -282,7 +282,7 @@ describe('Multi-User CRDT Integration', () => {
         }
       });
 
-      const user = userManager.addUser({
+      userManager.addUser({
         id: 'user1',
         name: 'Alice'
       });
@@ -298,19 +298,19 @@ describe('Multi-User CRDT Integration', () => {
   describe('Conflict Resolution', () => {
     it('should detect and resolve conflicts', () => {
       const conflictResolver = new ConflictResolver({
-        defaultStrategy: 'last_writer_wins' as any,
+        defaultStrategy: 'last_writer_wins' as unknown,
         userPriorities: [
           { userId: 'instructor1', priority: 10, role: 'instructor' },
           { userId: 'student1', priority: 1, role: 'student' }
         ],
         enableSemanticAnalysis: false,
-        autoResolveThreshold: 'low' as any,
+        autoResolveThreshold: 'low' as unknown,
         maxConflictAge: 60000
       });
 
       const operations = [
         {
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: 5,
           content: 'Hello',
           timestamp: 1000,
@@ -318,7 +318,7 @@ describe('Multi-User CRDT Integration', () => {
           sessionId: 'session1'
         },
         {
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: 5,
           content: 'Hi',
           timestamp: 1001,
@@ -337,16 +337,16 @@ describe('Multi-User CRDT Integration', () => {
 
     it('should auto-resolve low-severity conflicts', () => {
       const conflictResolver = new ConflictResolver({
-        defaultStrategy: 'last_writer_wins' as any,
+        defaultStrategy: 'last_writer_wins' as unknown,
         userPriorities: [],
         enableSemanticAnalysis: false,
-        autoResolveThreshold: 'medium' as any,
+        autoResolveThreshold: 'medium' as unknown,
         maxConflictAge: 60000
       });
 
       const operations = [
         {
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: 5,
           content: '  ', // Whitespace - low severity
           timestamp: 1000,
@@ -354,7 +354,7 @@ describe('Multi-User CRDT Integration', () => {
           sessionId: 'session1'
         },
         {
-          type: 'INSERT' as any,
+          type: 'INSERT' as unknown,
           position: 5,
           content: '\t', // Tab - low severity
           timestamp: 1001,
@@ -363,7 +363,7 @@ describe('Multi-User CRDT Integration', () => {
         }
       ];
 
-      const conflicts = conflictResolver.detectConflicts(operations);
+      conflictResolver.detectConflicts(operations);
       const resolutions = conflictResolver.autoResolveConflicts();
 
       expect(resolutions.length).toBeGreaterThanOrEqual(0);
