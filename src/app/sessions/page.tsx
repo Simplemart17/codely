@@ -92,15 +92,15 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-foreground">
               Coding Sessions
             </h1>
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-muted-foreground">
               Manage your collaborative coding sessions
             </p>
           </div>
@@ -110,30 +110,30 @@ export default function SessionsPage() {
             <nav className="flex space-x-8" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
                   activeTab === 'all'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 All Sessions
               </button>
               <button
                 onClick={() => setActiveTab('my-sessions')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
                   activeTab === 'my-sessions'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 My Sessions
               </button>
               <button
                 onClick={() => setActiveTab('public')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
                   activeTab === 'public'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 Public Sessions
@@ -145,31 +145,31 @@ export default function SessionsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Active Sessions</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active Sessions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">3</div>
-                <p className="text-xs text-gray-600">Currently running</p>
+                <div className="text-2xl font-bold text-foreground">3</div>
+                <p className="text-xs text-muted-foreground">Currently running</p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Total Participants</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Participants</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">24</div>
-                <p className="text-xs text-gray-600">Across all sessions</p>
+                <div className="text-2xl font-bold text-foreground">24</div>
+                <p className="text-xs text-muted-foreground">Across all sessions</p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">This Week</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">7</div>
-                <p className="text-xs text-gray-600">Sessions created</p>
+                <div className="text-2xl font-bold text-foreground">7</div>
+                <p className="text-xs text-muted-foreground">Sessions created</p>
               </CardContent>
             </Card>
           </div>

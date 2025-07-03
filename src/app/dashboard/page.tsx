@@ -16,14 +16,14 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-foreground">
               Welcome back, {user.user_metadata?.name || user.email}!
             </h1>
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-muted-foreground">
               Ready to start coding collaboratively?
             </p>
           </div>
@@ -83,30 +83,30 @@ export default async function DashboardPage() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold">1</span>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">1</span>
                     </div>
                     <div>
-                      <p className="font-medium">Create or join a session</p>
-                      <p className="text-sm text-gray-600">Start collaborating with others</p>
+                      <p className="font-medium text-foreground">Create or join a session</p>
+                      <p className="text-sm text-muted-foreground">Start collaborating with others</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold">2</span>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">2</span>
                     </div>
                     <div>
-                      <p className="font-medium">Choose your language</p>
-                      <p className="text-sm text-gray-600">JavaScript, Python, or C#</p>
+                      <p className="font-medium text-foreground">Choose your language</p>
+                      <p className="text-sm text-muted-foreground">JavaScript, Python, or C#</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold">3</span>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">3</span>
                     </div>
                     <div>
-                      <p className="font-medium">Start coding together</p>
-                      <p className="text-sm text-gray-600">Real-time collaboration and code execution</p>
+                      <p className="font-medium text-foreground">Start coding together</p>
+                      <p className="text-sm text-muted-foreground">Real-time collaboration and code execution</p>
                     </div>
                   </div>
                 </div>
