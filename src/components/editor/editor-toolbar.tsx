@@ -66,19 +66,19 @@ export function EditorToolbar({
   // };
 
   return (
-    <Card className="border-b border-gray-200 rounded-none">
+    <Card className="border-b border-border rounded-none">
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
           {/* Left side - Language and actions */}
           <div className="flex items-center space-x-3">
             {/* Language Selector */}
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-gray-700">Language:</span>
+              <span className="text-sm font-medium text-foreground">Language:</span>
               <select
                 value={language}
                 onChange={(e) => handleLanguageChange(e.target.value as Language)}
                 disabled={!canChangeLanguage}
-                className="text-sm border border-gray-300 rounded px-2 py-1 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="text-sm border-2 border-input rounded px-2 py-1 bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
               >
                 {LANGUAGE_OPTIONS.map((lang) => (
                   <option key={lang.value} value={lang.value}>
@@ -95,11 +95,11 @@ export function EditorToolbar({
                   size="sm"
                   onClick={onRun}
                   disabled={isRunning}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-success text-success-foreground hover:bg-success/90"
                 >
                   {isRunning ? (
                     <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
                       Running...
                     </>
                   ) : (
@@ -118,7 +118,7 @@ export function EditorToolbar({
               >
                 {isSaving ? (
                   <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></div>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
                     Saving...
                   </>
                 ) : (
@@ -141,21 +141,21 @@ export function EditorToolbar({
           {/* Right side - Settings and info */}
           <div className="flex items-center space-x-3">
             {/* Current language info */}
-            <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+            <div className="hidden sm:flex items-center space-x-2 text-sm text-muted-foreground">
               <span>{currentLanguage?.icon}</span>
               <span>{currentLanguage?.label}</span>
             </div>
 
             {/* User info */}
             {user && (
-              <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold text-xs">
+              <div className="hidden md:flex items-center space-x-2 text-sm text-muted-foreground">
+                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
+                  <span className="text-primary font-semibold text-xs">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <span>{user.name}</span>
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
                   {user.role.toLowerCase()}
                 </span>
               </div>
@@ -174,28 +174,28 @@ export function EditorToolbar({
         </div>
 
         {/* Keyboard Shortcuts Info */}
-        <div className="mt-2 text-xs text-gray-500 hidden lg:block">
+        <div className="mt-2 text-xs text-muted-foreground hidden lg:block">
           <span className="mr-4">
-            <kbd className="px-1 py-0.5 bg-gray-100 rounded">Ctrl+S</kbd> Save
+            <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded">Ctrl+S</kbd> Save
           </span>
           {showRunButton && (
             <span className="mr-4">
-              <kbd className="px-1 py-0.5 bg-gray-100 rounded">Ctrl+Enter</kbd> Run
+              <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded">Ctrl+Enter</kbd> Run
             </span>
           )}
           <span className="mr-4">
-            <kbd className="px-1 py-0.5 bg-gray-100 rounded">Shift+Alt+F</kbd> Format
+            <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded">Shift+Alt+F</kbd> Format
           </span>
         </div>
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="mt-3 p-3 bg-gray-50 rounded border">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Editor Settings</h4>
+          <div className="mt-3 p-3 bg-muted rounded border border-border">
+            <h4 className="text-sm font-medium text-foreground mb-2">Editor Settings</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div>
-                <label className="block text-gray-600 mb-1">Font Size</label>
-                <select className="w-full text-xs border border-gray-300 rounded px-2 py-1">
+                <label className="block text-muted-foreground mb-1">Font Size</label>
+                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
                   <option value="12">12px</option>
                   <option value="14" selected>14px</option>
                   <option value="16">16px</option>
@@ -203,15 +203,15 @@ export function EditorToolbar({
                 </select>
               </div>
               <div>
-                <label className="block text-gray-600 mb-1">Theme</label>
-                <select className="w-full text-xs border border-gray-300 rounded px-2 py-1">
+                <label className="block text-muted-foreground mb-1">Theme</label>
+                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                 </select>
               </div>
               <div>
-                <label className="block text-gray-600 mb-1">Key Bindings</label>
-                <select className="w-full text-xs border border-gray-300 rounded px-2 py-1">
+                <label className="block text-muted-foreground mb-1">Key Bindings</label>
+                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
                   <option value="vscode">VS Code</option>
                   <option value="vim">Vim</option>
                   <option value="emacs">Emacs</option>

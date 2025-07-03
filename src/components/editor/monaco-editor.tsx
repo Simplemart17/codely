@@ -152,6 +152,25 @@ export function MonacoEditor({
     }
   }, [user?.preferences, isEditorReady]);
 
+  // Update editor language when language prop changes
+  useEffect(() => {
+    if (isEditorReady && editorRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        const monacoLanguage = getMonacoLanguage(language);
+        // Create a new model with the new language
+        const newModel = monaco.editor.createModel(
+          model.getValue(),
+          monacoLanguage
+        );
+        editorRef.current.setModel(newModel);
+
+        // Dispose of the old model to prevent memory leaks
+        model.dispose();
+      }
+    }
+  }, [language, isEditorReady, monaco]);
+
   return (
     <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">
       <Editor

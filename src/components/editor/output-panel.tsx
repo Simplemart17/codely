@@ -37,15 +37,15 @@ export function OutputPanel({
   const getLineStyle = (type: OutputLine['type']) => {
     switch (type) {
       case 'stdout':
-        return 'text-gray-800';
+        return 'text-foreground';
       case 'stderr':
-        return 'text-red-600';
+        return 'text-destructive';
       case 'error':
-        return 'text-red-700 font-medium';
+        return 'text-destructive font-medium';
       case 'info':
-        return 'text-blue-600';
+        return 'text-primary';
       default:
-        return 'text-gray-800';
+        return 'text-foreground';
     }
   };
 
@@ -81,8 +81,8 @@ export function OutputPanel({
             Output
             {isRunning && (
               <div className="ml-2 flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                <span className="ml-1 text-xs text-blue-600">Running...</span>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                <span className="ml-1 text-xs text-primary">Running...</span>
               </div>
             )}
           </CardTitle>
@@ -112,11 +112,11 @@ export function OutputPanel({
         <CardContent className="flex-1 p-0">
           <div
             ref={outputRef}
-            className="h-full overflow-y-auto bg-gray-900 text-gray-100 font-mono text-sm"
+            className="h-full overflow-y-auto bg-card border border-border font-mono text-sm"
             style={{ height }}
           >
             {output.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center">
                   <div className="text-2xl mb-2">📟</div>
                   <p>No output yet</p>
@@ -128,9 +128,9 @@ export function OutputPanel({
                 {output.map((line) => (
                   <div
                     key={line.id}
-                    className="flex items-start space-x-2 hover:bg-gray-800 px-2 py-1 rounded"
+                    className="flex items-start space-x-2 hover:bg-muted/50 px-2 py-1 rounded"
                   >
-                    <span className="text-xs text-gray-500 mt-0.5 min-w-[60px]">
+                    <span className="text-xs text-muted-foreground mt-0.5 min-w-[60px]">
                       {formatTimestamp(line.timestamp)}
                     </span>
                     <span className={`flex-1 whitespace-pre-wrap ${getLineStyle(line.type)}`}>
@@ -141,10 +141,10 @@ export function OutputPanel({
                 
                 {isRunning && (
                   <div className="flex items-center space-x-2 px-2 py-1">
-                    <span className="text-xs text-gray-500 min-w-[60px]">
+                    <span className="text-xs text-muted-foreground min-w-[60px]">
                       {formatTimestamp(new Date())}
                     </span>
-                    <span className="text-blue-400 flex items-center">
+                    <span className="text-primary flex items-center">
                       <div className="animate-pulse mr-2">⚡</div>
                       Executing...
                     </span>
@@ -158,7 +158,7 @@ export function OutputPanel({
 
       {/* Output Statistics */}
       {output.length > 0 && (
-        <div className="px-3 py-2 bg-gray-50 border-t text-xs text-gray-600 flex justify-between">
+        <div className="px-3 py-2 bg-muted border-t border-border text-xs text-muted-foreground flex justify-between">
           <span>
             {output.length} line{output.length !== 1 ? 's' : ''}
           </span>
