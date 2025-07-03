@@ -9,43 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function SessionsPage() {
-  const { user, setUser } = useUserStore();
+  const { user, loadUser } = useUserStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'my-sessions' | 'public'>('all');
 
   useEffect(() => {
-    // Get user data from Supabase
-    const supabase = createClient();
-    
-    const getUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (authUser) {
-        // Convert Supabase user to our User type
-        const userData = {
-          id: authUser.id,
-          email: authUser.email || '',
-          name: authUser.user_metadata?.name || authUser.email || '',
-          role: (authUser.user_metadata?.role || 'LEARNER') as 'INSTRUCTOR' | 'LEARNER',
-          avatar: authUser.user_metadata?.avatar_url,
-          preferences: {
-            theme: 'light' as const,
-            fontSize: 14,
-            keyBindings: 'vscode' as const,
-          },
-          createdAt: new Date(authUser.created_at),
-          updatedAt: new Date(),
-        };
-        
-        setUser(userData);
-      }
-    };
-
-    getUser();
-  }, [setUser]);
+    // Load user data from database
+    loadUser();
+  }, [loadUser]);
 
   const handleCreateSession = () => {
-    setShowCreateForm(true);
+    // Only allow instructors to create sessions
+    if (user?.role === 'INSTRUCTOR') {
+      setShowCreateForm(true);
+    }
   };
 
   const handleCreateSuccess = (sessionId: string) => {
@@ -60,7 +37,7 @@ export default function SessionsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Authentication Required</CardTitle>
@@ -79,8 +56,29 @@ export default function SessionsPage() {
   }
 
   if (showCreateForm) {
+    // Check if user is instructor before showing create form
+    if (user.role !== 'INSTRUCTOR') {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Access Restricted</CardTitle>
+              <CardDescription>
+                Only instructors can create new coding sessions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => setShowCreateForm(false)} className="w-full">
+                Back to Sessions
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-background py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CreateSessionForm
             onSuccess={handleCreateSuccess}

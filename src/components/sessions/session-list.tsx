@@ -27,8 +27,8 @@ export function SessionList({
   const [statusFilter, setStatusFilter] = useState<SessionStatus | 'all'>('all');
 
   useEffect(() => {
-    if (user && filter !== 'public') {
-      fetchUserSessions(user.id);
+    if (user) {
+      fetchUserSessions(user.id, filter);
     }
   }, [user, filter, fetchUserSessions]);
 
@@ -98,8 +98,8 @@ export function SessionList({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">
-          {filter === 'my-sessions' ? 'My Sessions' : 
+        <h2 className="text-2xl font-bold text-foreground">
+          {filter === 'my-sessions' ? 'My Sessions' :
            filter === 'public' ? 'Public Sessions' : 'All Sessions'}
         </h2>
         {showCreateButton && user?.role === 'INSTRUCTOR' && (

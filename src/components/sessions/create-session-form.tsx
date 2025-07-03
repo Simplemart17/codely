@@ -50,9 +50,15 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       setValidationErrors({ general: 'You must be logged in to create a session' });
+      return;
+    }
+
+    // Check if user is an instructor
+    if (user.role !== 'INSTRUCTOR') {
+      setValidationErrors({ general: 'Only instructors can create sessions' });
       return;
     }
 
@@ -73,6 +79,19 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
       }
     } catch (err) {
       console.error('Failed to create session:', err);
+
+      // Handle specific error messages
+      if (err instanceof Error) {
+        if (err.message.includes('Only instructors')) {
+          setValidationErrors({ general: 'Only instructors can create sessions' });
+        } else if (err.message.includes('Unauthorized')) {
+          setValidationErrors({ general: 'You must be logged in to create a session' });
+        } else {
+          setValidationErrors({ general: err.message });
+        }
+      } else {
+        setValidationErrors({ general: 'Failed to create session. Please try again.' });
+      }
     }
   };
 
