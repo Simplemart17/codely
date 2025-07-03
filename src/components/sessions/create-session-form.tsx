@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SessionTemplateSelector } from './session-template-selector';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import type { CreateSessionData, Language } from '@/types';
+import type { SessionTemplate } from '@/lib/session-templates';
 
 interface CreateSessionFormProps {
   onSuccess?: (sessionId: string) => void;
@@ -35,6 +37,8 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [newObjective, setNewObjective] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<SessionTemplate | null>(null);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -152,13 +156,84 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
     }));
   };
 
+  const handleTemplateSelect = (template: SessionTemplate) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({
+      ...prev,
+      title: template.name,
+      description: template.description,
+      language: template.language,
+      objectives: [...template.objectives],
+      tags: [...template.tags],
+      estimatedDuration: template.estimatedDuration,
+      difficulty: template.difficulty,
+      prerequisites: template.prerequisites || '',
+    }));
+    setShowTemplateSelector(false);
+  };
+
   return (
+    <>
+      {showTemplateSelector && (
+        <SessionTemplateSelector
+          onSelectTemplate={handleTemplateSelect}
+          selectedLanguage={formData.language || undefined}
+          onClose={() => setShowTemplateSelector(false)}
+        />
+      )}
+
+      {selectedTemplate && (
+        <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-foreground">Using Template: {selectedTemplate.name}</h3>
+              <p className="text-sm text-muted-foreground">You can modify any of the pre-filled values below</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedTemplate(null);
+                setFormData({
+                  title: '',
+                  description: '',
+                  language: '' as Language,
+                  maxParticipants: 10,
+                  isPublic: true,
+                  objectives: [],
+                  tags: [],
+                  estimatedDuration: 60,
+                  difficulty: 'BEGINNER',
+                  prerequisites: '',
+                });
+              }}
+            >
+              Clear Template
+            </Button>
+          </div>
+        </div>
+      )}
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Create New Session</CardTitle>
-        <CardDescription>
-          Start a new collaborative coding session for your students
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Create New Session</CardTitle>
+            <CardDescription>
+              Start a new collaborative coding session for your students
+            </CardDescription>
+          </div>
+          {!selectedTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTemplateSelector(true)}
+              className="shrink-0"
+            >
+              📝 Use Template
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">

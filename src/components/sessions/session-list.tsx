@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SessionMetadata } from './session-metadata';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { formatDate } from '@/lib/utils';
@@ -192,25 +193,20 @@ export function SessionList({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Language:</span>
-                    <span className="font-medium">{getLanguageLabel(session.language)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Participants:</span>
-                    <span>{session.participants.length}/{session.maxParticipants}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
+                <div className="space-y-4">
+                  {/* Session Metadata */}
+                  <SessionMetadata session={session} compact={true} />
+
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Created:</span>
                     <span>{formatDate(session.createdAt)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600">
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Visibility:</span>
                     <span>{session.isPublic ? 'Public' : 'Private'}</span>
                   </div>
-                  
-                  <div className="pt-3 border-t">
+
+                  <div className="pt-3 border-t border-border">
                     <Link href={`/sessions/${session.id}`}>
                       <Button className="w-full" size="sm">
                         {session.instructorId === user?.id ? 'Manage Session' : 'Join Session'}

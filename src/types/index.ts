@@ -35,6 +35,11 @@ export interface Session {
   maxParticipants: number;
   isPublic: boolean;
   code: string;
+  objectives?: string[];
+  tags?: string[];
+  estimatedDuration?: number; // in minutes
+  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  prerequisites?: string;
   participants: SessionParticipant[];
   createdAt: Date;
   updatedAt: Date;

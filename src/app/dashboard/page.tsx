@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DashboardStats } from '@/components/dashboard/dashboard-stats';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -26,6 +27,12 @@ export default async function DashboardPage() {
             <p className="mt-2 text-muted-foreground">
               Ready to start coding collaboratively?
             </p>
+          </div>
+
+          {/* Dashboard Statistics */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-foreground mb-4">Your Statistics</h2>
+            <DashboardStats />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
