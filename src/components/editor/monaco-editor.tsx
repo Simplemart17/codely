@@ -153,7 +153,7 @@ export function MonacoEditor({
   }, [user?.preferences, isEditorReady]);
 
   return (
-    <div className="w-full h-full border border-gray-300 rounded-lg overflow-hidden">
+    <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">
       <Editor
         height={height}
         language={monacoLanguage}
@@ -189,8 +189,8 @@ export function MonacoEditor({
         loading={
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading editor...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-muted-foreground">Loading editor...</p>
             </div>
           </div>
         }

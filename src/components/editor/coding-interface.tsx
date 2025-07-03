@@ -1,6 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+
+// Extend Window interface for auto-save timeout
+declare global {
+  interface Window {
+    autoSaveTimeout?: NodeJS.Timeout;
+  }
+}
 import * as monaco from 'monaco-editor';
 import { MonacoEditor } from './monaco-editor';
 import { EditorToolbar } from './editor-toolbar';
@@ -43,12 +50,40 @@ export function CodingInterface({
   const handleCodeChange = useCallback((newCode: string) => {
     setCode(newCode);
     onCodeChange?.(newCode);
-  }, [onCodeChange]);
+
+    // Auto-save code changes to session (debounced)
+    if (sessionId) {
+      // Clear previous timeout
+      if (window.autoSaveTimeout) {
+        clearTimeout(window.autoSaveTimeout);
+      }
+
+      // Set new timeout for auto-save (1 second delay)
+      window.autoSaveTimeout = setTimeout(() => {
+        updateSession(sessionId, {
+          code: newCode,
+          updatedAt: new Date(),
+        }).catch(error => {
+          console.error('Failed to auto-save code:', error);
+        });
+      }, 1000);
+    }
+  }, [onCodeChange, sessionId, updateSession]);
 
   const handleLanguageChange = useCallback((newLanguage: Language) => {
     setLanguage(newLanguage);
     onLanguageChange?.(newLanguage);
-  }, [onLanguageChange]);
+
+    // Update session with new language if sessionId is provided
+    if (sessionId) {
+      updateSession(sessionId, {
+        language: newLanguage,
+        updatedAt: new Date(),
+      }).catch(error => {
+        console.error('Failed to update session language:', error);
+      });
+    }
+  }, [onLanguageChange, sessionId, updateSession]);
 
   const handleRun = useCallback(async () => {
     if (isRunning || !code.trim()) return;
