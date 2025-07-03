@@ -4,14 +4,16 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import type { UserRole } from '@/types';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'instructor' | 'learner'>('learner');
+  const [role, setRole] = useState<UserRole>('LEARNER');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -23,7 +25,8 @@ export default function SignupPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.auth.signUp({
+      // Sign up with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -36,7 +39,29 @@ export default function SignupPage() {
 
       if (error) {
         setMessage(error.message);
-      } else {
+      } else if (data.user) {
+        // If signup successful and user is confirmed, create database record
+        if (data.user.email_confirmed_at) {
+          try {
+            const response = await fetch('/api/users', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name,
+                role,
+              }),
+            });
+
+            if (!response.ok) {
+              console.error('Failed to create user in database');
+            }
+          } catch (dbError) {
+            console.error('Error creating user in database:', dbError);
+          }
+        }
+
         setMessage('Check your email for the confirmation link!');
       }
     } catch {
@@ -67,7 +92,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold">Join Codely</CardTitle>
@@ -78,7 +103,7 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="name" className="block text-sm font-medium text-foreground">
                 Full Name
               </label>
               <Input
@@ -92,7 +117,7 @@ export default function SignupPage() {
               />
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">
                 Email address
               </label>
               <Input
@@ -106,7 +131,7 @@ export default function SignupPage() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground">
                 Password
               </label>
               <Input
@@ -121,18 +146,18 @@ export default function SignupPage() {
               />
             </div>
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="role" className="block text-sm font-medium text-foreground">
                 I am a...
               </label>
-              <select
+              <Select
                 id="role"
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'instructor' | 'learner')}
-                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                className="mt-1"
               >
-                <option value="learner">Learner</option>
-                <option value="instructor">Instructor</option>
-              </select>
+                <option value="LEARNER">Learner</option>
+                <option value="INSTRUCTOR">Instructor</option>
+              </Select>
             </div>
             {message && (
               <div className={`text-sm ${message.includes('email') ? 'text-green-600' : 'text-red-600'}`}>
@@ -147,10 +172,10 @@ export default function SignupPage() {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-background text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
@@ -167,9 +192,9 @@ export default function SignupPage() {
           </div>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link href="/login" className="font-medium text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded">
                 Sign in
               </Link>
             </p>
