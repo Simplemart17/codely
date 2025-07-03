@@ -40,40 +40,18 @@ export function SessionSnapshots({
   const fetchSnapshots = useCallback(async () => {
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
-      const mockSnapshots: SessionSnapshot[] = [
-        {
-          id: 'snap_1',
-          sessionId,
-          title: 'Initial Setup',
-          description: 'Basic HTML structure and CSS setup',
-          code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>My App</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>',
-          metadata: { 
-            language: 'html',
-            participants: 3,
-            lineCount: 8
-          },
-          createdBy: 'user_1',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        },
-        {
-          id: 'snap_2',
-          sessionId,
-          title: 'Added JavaScript',
-          description: 'Added event handlers and basic functionality',
-          code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>My App</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n  <button onclick="alert(\'Hello!\')">Click me</button>\n  <script>\n    console.log("App loaded");\n  </script>\n</body>\n</html>',
-          metadata: { 
-            language: 'html',
-            participants: 3,
-            lineCount: 12
-          },
-          createdBy: 'user_1',
-          createdAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
-        },
-      ];
-      setSnapshots(mockSnapshots);
+      // Fetch snapshots from API
+      const response = await fetch(`/api/sessions/${sessionId}/snapshots`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch snapshots');
+      }
+
+      const { snapshots } = await response.json();
+      setSnapshots(snapshots || []);
     } catch (error) {
       console.error('Failed to fetch snapshots:', error);
+      setSnapshots([]); // Set empty array on error
     } finally {
       setIsLoading(false);
     }
@@ -85,26 +63,26 @@ export function SessionSnapshots({
 
   const handleCreateSnapshot = async (data: CreateSnapshotData) => {
     try {
-      // TODO: Replace with actual API call
-      const newSnapshot: SessionSnapshot = {
-        id: `snap_${Date.now()}`,
-        sessionId: data.sessionId,
-        title: data.title,
-        description: data.description,
-        code: data.code,
-        metadata: {
-          ...data.metadata,
-          lineCount: data.code.split('\n').length,
-          createdAt: new Date().toISOString(),
+      // Create snapshot via API
+      const response = await fetch(`/api/sessions/${sessionId}/snapshots`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        createdBy: 'current_user_id', // TODO: Get from auth context
-        createdAt: new Date(),
-      };
-      
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create snapshot');
+      }
+
+      const { snapshot: newSnapshot } = await response.json();
+
       setSnapshots(prev => [newSnapshot, ...prev]);
       setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create snapshot:', error);
+      // Could add toast notification here
     }
   };
 

@@ -22,26 +22,19 @@ const LANGUAGE_MAP: Record<Language, string> = {
   CSHARP: 'csharp',
 };
 
-const DEFAULT_CODE: Record<Language, string> = {
-  JAVASCRIPT: `// Welcome to JavaScript!
-// Try writing some code below
+const STARTER_TEMPLATES: Record<Language, string> = {
+  JAVASCRIPT: `// JavaScript coding session
+// Start writing your code here
 
-function greet(name) {
-  return \`Hello, \${name}!\`;
-}
+`,
 
-console.log(greet('World'));`,
-  
-  PYTHON: `# Welcome to Python!
-# Try writing some code below
+  PYTHON: `# Python coding session
+# Start writing your code here
 
-def greet(name):
-    return f"Hello, {name}!"
+`,
 
-print(greet("World"))`,
-  
-  CSHARP: `// Welcome to C#!
-// Try writing some code below
+  CSHARP: `// C# coding session
+// Start writing your code here
 
 using System;
 
@@ -49,13 +42,7 @@ class Program
 {
     static void Main()
     {
-        string message = Greet("World");
-        Console.WriteLine(message);
-    }
-    
-    static string Greet(string name)
-    {
-        return $"Hello, {name}!";
+        // Your code here
     }
 }`,
 };
@@ -79,8 +66,8 @@ export function MonacoEditor({
   // Get Monaco language identifier
   const monacoLanguage = LANGUAGE_MAP[language] || 'javascript';
 
-  // Get default code if value is empty
-  const editorValue = value || DEFAULT_CODE[language] || '';
+  // Use provided value or minimal starter template if completely empty
+  const editorValue = value || (value === '' ? STARTER_TEMPLATES[language] || '' : '');
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -165,8 +152,27 @@ export function MonacoEditor({
     }
   }, [user?.preferences, isEditorReady]);
 
+  // Update editor language when language prop changes
+  useEffect(() => {
+    if (isEditorReady && editorRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        const monacoLanguage = getMonacoLanguage(language);
+        // Create a new model with the new language
+        const newModel = monaco.editor.createModel(
+          model.getValue(),
+          monacoLanguage
+        );
+        editorRef.current.setModel(newModel);
+
+        // Dispose of the old model to prevent memory leaks
+        model.dispose();
+      }
+    }
+  }, [language, isEditorReady, monaco]);
+
   return (
-    <div className="w-full h-full border border-gray-300 rounded-lg overflow-hidden">
+    <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">
       <Editor
         height={height}
         language={monacoLanguage}
@@ -202,8 +208,8 @@ export function MonacoEditor({
         loading={
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading editor...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-muted-foreground">Loading editor...</p>
             </div>
           </div>
         }

@@ -181,7 +181,7 @@ export default function SessionCodePage() {
           sessionId={sessionId}
           initialCode={currentSession.code}
           initialLanguage={currentSession.language}
-          readOnly={!isInstructor && currentSession.instructorId !== user?.id}
+          readOnly={false} // Allow all users to edit for collaborative coding
           onCodeChange={handleCodeChange}
           onLanguageChange={handleLanguageChange}
         />

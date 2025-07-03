@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SessionTemplateSelector } from './session-template-selector';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import type { CreateSessionData, Language } from '@/types';
+import type { SessionTemplate } from '@/lib/session-templates';
 
 interface CreateSessionFormProps {
   onSuccess?: (sessionId: string) => void;
@@ -22,12 +24,21 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
   const [formData, setFormData] = useState<CreateSessionData>({
     title: '',
     description: '',
-    language: 'JAVASCRIPT',
+    language: '' as Language, // No default language - force user to choose
     maxParticipants: 10,
     isPublic: true,
+    objectives: [],
+    tags: [],
+    estimatedDuration: 60,
+    difficulty: 'BEGINNER',
+    prerequisites: '',
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [newObjective, setNewObjective] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<SessionTemplate | null>(null);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -38,10 +49,18 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
       errors.title = 'Title must be at least 3 characters';
     }
 
+    if (!formData.language || formData.language === '') {
+      errors.language = 'Programming language is required';
+    }
+
     if (formData.maxParticipants < 1) {
       errors.maxParticipants = 'Must allow at least 1 participant';
     } else if (formData.maxParticipants > 50) {
       errors.maxParticipants = 'Maximum 50 participants allowed';
+    }
+
+    if (formData.estimatedDuration && (formData.estimatedDuration < 15 || formData.estimatedDuration > 480)) {
+      errors.estimatedDuration = 'Duration must be between 15 and 480 minutes';
     }
 
     setValidationErrors(errors);
@@ -50,9 +69,15 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       setValidationErrors({ general: 'You must be logged in to create a session' });
+      return;
+    }
+
+    // Check if user is an instructor
+    if (user.role !== 'INSTRUCTOR') {
+      setValidationErrors({ general: 'Only instructors can create sessions' });
       return;
     }
 
@@ -73,6 +98,19 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
       }
     } catch (err) {
       console.error('Failed to create session:', err);
+
+      // Handle specific error messages
+      if (err instanceof Error) {
+        if (err.message.includes('Only instructors')) {
+          setValidationErrors({ general: 'Only instructors can create sessions' });
+        } else if (err.message.includes('Unauthorized')) {
+          setValidationErrors({ general: 'You must be logged in to create a session' });
+        } else {
+          setValidationErrors({ general: err.message });
+        }
+      } else {
+        setValidationErrors({ general: 'Failed to create session. Please try again.' });
+      }
     }
   };
 
@@ -84,19 +122,124 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
     }
   };
 
+  const addObjective = () => {
+    if (newObjective.trim() && !formData.objectives?.includes(newObjective.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        objectives: [...(prev.objectives || []), newObjective.trim()]
+      }));
+      setNewObjective('');
+    }
+  };
+
+  const removeObjective = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      objectives: prev.objectives?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const addTag = () => {
+    if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...(prev.tags || []), newTag.trim()]
+      }));
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const handleTemplateSelect = (template: SessionTemplate) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({
+      ...prev,
+      title: template.name,
+      description: template.description,
+      language: template.language,
+      objectives: [...template.objectives],
+      tags: [...template.tags],
+      estimatedDuration: template.estimatedDuration,
+      difficulty: template.difficulty,
+      prerequisites: template.prerequisites || '',
+    }));
+    setShowTemplateSelector(false);
+  };
+
   return (
+    <>
+      {showTemplateSelector && (
+        <SessionTemplateSelector
+          onSelectTemplate={handleTemplateSelect}
+          selectedLanguage={formData.language || undefined}
+          onClose={() => setShowTemplateSelector(false)}
+        />
+      )}
+
+      {selectedTemplate && (
+        <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-foreground">Using Template: {selectedTemplate.name}</h3>
+              <p className="text-sm text-muted-foreground">You can modify any of the pre-filled values below</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedTemplate(null);
+                setFormData({
+                  title: '',
+                  description: '',
+                  language: '' as Language,
+                  maxParticipants: 10,
+                  isPublic: true,
+                  objectives: [],
+                  tags: [],
+                  estimatedDuration: 60,
+                  difficulty: 'BEGINNER',
+                  prerequisites: '',
+                });
+              }}
+            >
+              Clear Template
+            </Button>
+          </div>
+        </div>
+      )}
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Create New Session</CardTitle>
-        <CardDescription>
-          Start a new collaborative coding session for your students
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Create New Session</CardTitle>
+            <CardDescription>
+              Start a new collaborative coding session for your students
+            </CardDescription>
+          </div>
+          {!selectedTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTemplateSelector(true)}
+              className="shrink-0"
+            >
+              📝 Use Template
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Session Title */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">
               Session Title *
             </label>
             <Input
@@ -114,7 +257,7 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
               Description
             </label>
             <textarea
@@ -129,15 +272,16 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
           {/* Programming Language */}
           <div>
-            <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="language" className="block text-sm font-medium text-foreground mb-1">
               Programming Language *
             </label>
             <select
               id="language"
               value={formData.language}
               onChange={(e) => handleInputChange('language', e.target.value as Language)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
             >
+              <option value="">Select a programming language...</option>
               <option value="JAVASCRIPT">JavaScript</option>
               <option value="PYTHON">Python</option>
               <option value="CSHARP">C#</option>
@@ -146,7 +290,7 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
           {/* Max Participants */}
           <div>
-            <label htmlFor="maxParticipants" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="maxParticipants" className="block text-sm font-medium text-foreground mb-1">
               Maximum Participants *
             </label>
             <Input
@@ -163,6 +307,132 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
             )}
           </div>
 
+          {/* Learning Objectives */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Learning Objectives
+            </label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={newObjective}
+                  onChange={(e) => setNewObjective(e.target.value)}
+                  placeholder="Add a learning objective..."
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjective())}
+                />
+                <Button type="button" onClick={addObjective} size="sm">
+                  Add
+                </Button>
+              </div>
+              {formData.objectives && formData.objectives.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.objectives.map((objective, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-secondary text-secondary-foreground rounded-md text-sm"
+                    >
+                      {objective}
+                      <button
+                        type="button"
+                        onClick={() => removeObjective(index)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Tags
+            </label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Add a tag..."
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                />
+                <Button type="button" onClick={addTag} size="sm">
+                  Add
+                </Button>
+              </div>
+              {formData.tags && formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground rounded-md text-sm"
+                    >
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(index)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Difficulty Level */}
+          <div>
+            <label htmlFor="difficulty" className="block text-sm font-medium text-foreground mb-1">
+              Difficulty Level
+            </label>
+            <select
+              id="difficulty"
+              value={formData.difficulty}
+              onChange={(e) => handleInputChange('difficulty', e.target.value)}
+              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
+            >
+              <option value="BEGINNER">Beginner</option>
+              <option value="INTERMEDIATE">Intermediate</option>
+              <option value="ADVANCED">Advanced</option>
+            </select>
+          </div>
+
+          {/* Estimated Duration */}
+          <div>
+            <label htmlFor="estimatedDuration" className="block text-sm font-medium text-foreground mb-1">
+              Estimated Duration (minutes)
+            </label>
+            <Input
+              id="estimatedDuration"
+              type="number"
+              min="15"
+              max="480"
+              value={formData.estimatedDuration}
+              onChange={(e) => handleInputChange('estimatedDuration', parseInt(e.target.value) || 60)}
+              placeholder="60"
+            />
+          </div>
+
+          {/* Prerequisites */}
+          <div>
+            <label htmlFor="prerequisites" className="block text-sm font-medium text-foreground mb-1">
+              Prerequisites
+            </label>
+            <textarea
+              id="prerequisites"
+              value={formData.prerequisites}
+              onChange={(e) => handleInputChange('prerequisites', e.target.value)}
+              placeholder="What should students know before joining this session?"
+              rows={2}
+              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
+            />
+          </div>
+
           {/* Public/Private */}
           <div className="flex items-center space-x-2">
             <input
@@ -170,9 +440,9 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
               type="checkbox"
               checked={formData.isPublic}
               onChange={(e) => handleInputChange('isPublic', e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-input text-primary focus:ring-primary focus:ring-offset-2"
             />
-            <label htmlFor="isPublic" className="text-sm font-medium text-gray-700">
+            <label htmlFor="isPublic" className="text-sm font-medium text-foreground">
               Make this session public (others can discover and join)
             </label>
           </div>

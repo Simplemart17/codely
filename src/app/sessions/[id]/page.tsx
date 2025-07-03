@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SessionMetadata } from '@/components/sessions/session-metadata';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { formatDate } from '@/lib/utils';
@@ -93,17 +94,17 @@ export default function SessionDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-3xl font-bold text-foreground">
                   {currentSession.title}
                 </h1>
-                <p className="mt-2 text-gray-600">
+                <p className="mt-2 text-muted-foreground">
                   {currentSession.description || 'No description provided'}
                 </p>
               </div>
@@ -142,9 +143,12 @@ export default function SessionDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Session Details */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Session Metadata */}
+              <SessionMetadata session={currentSession} />
+
               <Card>
                 <CardHeader>
-                  <CardTitle>Session Information</CardTitle>
+                  <CardTitle>Session Timeline</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">

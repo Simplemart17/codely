@@ -1,10 +1,20 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { webSocketService } from '@/lib/services/websocket-service';
+import type { CodeChangeEvent, LanguageChangeEvent } from '@/lib/services/websocket-service';
+
+// Extend Window interface for auto-save timeout
+declare global {
+  interface Window {
+    autoSaveTimeout?: NodeJS.Timeout;
+  }
+}
 import * as monaco from 'monaco-editor';
 import { MonacoEditor } from './monaco-editor';
 import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
+import { UserPresence } from './user-presence';
 import { codeExecutionService } from '@/lib/code-execution';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
@@ -37,18 +47,62 @@ export function CodingInterface({
   const [output, setOutput] = useState<Array<{ id: string; type: 'stdout' | 'stderr' | 'info' | 'error'; content: string; timestamp: Date }>>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
+
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
   const handleCodeChange = useCallback((newCode: string) => {
+    // Prevent infinite loops when receiving updates from WebSocket
+    if (isReceivingUpdate) {
+      return;
+    }
+
     setCode(newCode);
     onCodeChange?.(newCode);
-  }, [onCodeChange]);
+
+    // Send real-time update via WebSocket
+    if (sessionId && user) {
+      webSocketService.sendCodeChange(newCode, language);
+    }
+
+    // Auto-save code changes to session (debounced)
+    if (sessionId) {
+      // Clear previous timeout
+      if (window.autoSaveTimeout) {
+        clearTimeout(window.autoSaveTimeout);
+      }
+
+      // Set new timeout for auto-save (1 second delay)
+      window.autoSaveTimeout = setTimeout(() => {
+        updateSession(sessionId, {
+          code: newCode,
+          updatedAt: new Date(),
+        }).catch(error => {
+          console.error('Failed to auto-save code:', error);
+        });
+      }, 1000);
+    }
+  }, [onCodeChange, sessionId, updateSession, isReceivingUpdate, language, user]);
 
   const handleLanguageChange = useCallback((newLanguage: Language) => {
     setLanguage(newLanguage);
     onLanguageChange?.(newLanguage);
-  }, [onLanguageChange]);
+
+    // Send real-time language update via WebSocket
+    if (sessionId && user) {
+      webSocketService.sendLanguageChange(newLanguage);
+    }
+
+    // Update session with new language if sessionId is provided
+    if (sessionId) {
+      updateSession(sessionId, {
+        language: newLanguage,
+        updatedAt: new Date(),
+      }).catch(error => {
+        console.error('Failed to update session language:', error);
+      });
+    }
+  }, [onLanguageChange, sessionId, updateSession, user]);
 
   const handleRun = useCallback(async () => {
     if (isRunning || !code.trim()) return;
@@ -117,6 +171,42 @@ export function CodingInterface({
     }
   }, [code, language, sessionId, updateSession, isSaving]);
 
+  // WebSocket connection and event handling
+  useEffect(() => {
+    if (!sessionId || !user) return;
+
+    // Connect to WebSocket and join session
+    webSocketService.connect();
+    webSocketService.joinSession(sessionId, user.id);
+
+    // Handle incoming code changes
+    const handleIncomingCodeChange = (event: CodeChangeEvent) => {
+      if (event.userId !== user.id) {
+        setIsReceivingUpdate(true);
+        setCode(event.code);
+        setTimeout(() => setIsReceivingUpdate(false), 100);
+      }
+    };
+
+    // Handle incoming language changes
+    const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
+      if (event.userId !== user.id) {
+        setLanguage(event.language);
+      }
+    };
+
+    // Set up event listeners
+    webSocketService.onCodeChange(handleIncomingCodeChange);
+    webSocketService.onLanguageChange(handleIncomingLanguageChange);
+
+    // Cleanup on unmount
+    return () => {
+      webSocketService.offCodeChange(handleIncomingCodeChange);
+      webSocketService.offLanguageChange(handleIncomingLanguageChange);
+      webSocketService.leaveSession();
+    };
+  }, [sessionId, user]);
+
   const handleFormat = useCallback(async () => {
     if (!editorRef.current) return;
 
@@ -181,6 +271,13 @@ export function CodingInterface({
           canChangeLanguage={canChangeLanguage}
           showRunButton={showRunButton}
         />
+      )}
+
+      {/* User Presence Indicator */}
+      {sessionId && (
+        <div className="px-4 py-2 border-b border-border bg-muted/30">
+          <UserPresence sessionId={sessionId} />
+        </div>
       )}
 
       {/* Main content area */}
