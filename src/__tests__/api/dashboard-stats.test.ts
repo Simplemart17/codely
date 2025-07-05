@@ -3,7 +3,6 @@
  */
 
 import { GET } from '@/app/api/dashboard/stats/route';
-import { NextRequest } from 'next/server';
 
 // Mock dependencies
 jest.mock('@/lib/supabase/server', () => ({
@@ -16,25 +15,19 @@ jest.mock('@/lib/services/user-service', () => ({
   }
 }));
 
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    session: {
-      count: jest.fn()
-    },
-    sessionParticipant: {
-      count: jest.fn()
-    }
+jest.mock('@/lib/supabase/database', () => ({
+  SupabaseDatabase: {
+    getServerClient: jest.fn()
   }
 }));
 
 import { createClient } from '@/lib/supabase/server';
 import { UserService } from '@/lib/services/user-service';
-import { prisma } from '@/lib/prisma';
+import { SupabaseDatabase } from '@/lib/supabase/database';
 
 const mockCreateClient = createClient as jest.Mock;
 const mockGetUserById = UserService.getUserById as jest.Mock;
-const mockSessionCount = prisma.session.count as jest.Mock;
-const mockParticipantCount = prisma.sessionParticipant.count as jest.Mock;
+const mockGetServerClient = SupabaseDatabase.getServerClient as jest.Mock;
 
 describe('/api/dashboard/stats', () => {
   beforeEach(() => {
@@ -51,7 +44,6 @@ describe('/api/dashboard/stats', () => {
       }
     });
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     const response = await GET();
 
     expect(response.status).toBe(401);
@@ -71,7 +63,6 @@ describe('/api/dashboard/stats', () => {
 
     mockGetUserById.mockResolvedValue(null);
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     const response = await GET();
 
     expect(response.status).toBe(404);
@@ -108,7 +99,6 @@ describe('/api/dashboard/stats', () => {
       .mockResolvedValueOnce(8) // sessionsParticipated
       .mockResolvedValueOnce(25); // totalParticipants
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     const response = await GET();
 
     expect(response.status).toBe(200);
@@ -149,7 +139,6 @@ describe('/api/dashboard/stats', () => {
       .mockResolvedValueOnce(12) // sessionsParticipated
       .mockResolvedValueOnce(4); // recentSessions (learner)
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     const response = await GET();
 
     expect(response.status).toBe(200);
@@ -185,7 +174,6 @@ describe('/api/dashboard/stats', () => {
     mockGetUserById.mockResolvedValue(mockUser);
     mockSessionCount.mockRejectedValue(new Error('Database error'));
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     const response = await GET();
 
     expect(response.status).toBe(500);
@@ -216,7 +204,6 @@ describe('/api/dashboard/stats', () => {
     mockSessionCount.mockResolvedValue(0);
     mockParticipantCount.mockResolvedValue(0);
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     await GET();
 
     // Verify correct queries were made
@@ -259,7 +246,6 @@ describe('/api/dashboard/stats', () => {
     mockSessionCount.mockResolvedValue(0);
     mockParticipantCount.mockResolvedValue(0);
 
-    const request = new NextRequest('http://localhost:3000/api/dashboard/stats');
     await GET();
 
     // Verify learner-specific queries
