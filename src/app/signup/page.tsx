@@ -37,9 +37,7 @@ export default function SignupPage() {
         },
       });
 
-      if (error) {
-        setMessage(error.message);
-      } else if (data.user) {
+      if (data.user) {
         // If signup successful and user is confirmed, create database record
         if (data.user.email_confirmed_at) {
           try {
@@ -60,9 +58,16 @@ export default function SignupPage() {
           } catch (dbError) {
             console.error('Error creating user in database:', dbError);
           }
-        }
 
-        setMessage('Check your email for the confirmation link!');
+          setMessage('Registration successful! Please login.');
+        } else {
+          // User needs to confirm email
+          setMessage('Check your email for the confirmation link!');
+        }
+      }
+
+      if (error) {
+        setMessage(error.message);
       }
     } catch {
       setMessage('An unexpected error occurred');
