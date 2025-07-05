@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService } from '@/lib/services/user-service';
-import { prisma } from '@/lib/prisma';
+import { SupabaseDatabase } from '@/lib/supabase/database';
 
 /**
  * GET /api/dashboard/stats - Get dashboard statistics for current user
@@ -28,78 +28,86 @@ export async function GET() {
       );
     }
 
-    // Get user statistics
+    // Get user statistics using Supabase
+    const supabaseClient = await SupabaseDatabase.getServerClient();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
     const [
-      sessionsCreated,
-      sessionsParticipated,
-      activeSessions,
-      totalParticipants,
-      recentSessions,
+      sessionsCreatedResult,
+      sessionsParticipatedResult,
+      activeSessionsResult,
+      totalParticipantsResult,
+      recentSessionsResult,
     ] = await Promise.all([
       // Sessions created by user (if instructor)
-      user.role === 'INSTRUCTOR' 
-        ? prisma.session.count({
-            where: { instructorId: user.id },
-          })
-        : 0,
-      
+      user.role === 'INSTRUCTOR'
+        ? supabaseClient
+            .from('sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('instructor_id', user.id)
+        : Promise.resolve({ count: 0 }),
+
       // Sessions user has participated in
-      prisma.sessionParticipant.count({
-        where: { userId: user.id },
-      }),
-      
+      supabaseClient
+        .from('session_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id),
+
       // Currently active sessions
       user.role === 'INSTRUCTOR'
-        ? prisma.session.count({
-            where: { 
-              instructorId: user.id,
-              status: 'ACTIVE',
-            },
-          })
-        : prisma.session.count({
-            where: {
-              status: 'ACTIVE',
-              OR: [
-                { isPublic: true },
-                {
-                  participants: {
-                    some: { userId: user.id },
-                  },
-                },
-              ],
-            },
-          }),
-      
+        ? supabaseClient
+            .from('sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('instructor_id', user.id)
+            .eq('status', 'ACTIVE')
+        : supabaseClient
+            .from('sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'ACTIVE')
+            .or(`is_public.eq.true,session_participants.user_id.eq.${user.id}`),
+
       // Total participants across user's sessions (if instructor)
       user.role === 'INSTRUCTOR'
-        ? prisma.sessionParticipant.count({
-            where: {
-              session: {
-                instructorId: user.id,
-              },
-            },
-          })
-        : 0,
-      
+        ? (async () => {
+            // First get the session IDs
+            const { data: sessionData } = await supabaseClient
+              .from('sessions')
+              .select('id')
+              .eq('instructor_id', user.id);
+
+            const sessionIds = sessionData?.map(s => s.id) || [];
+
+            if (sessionIds.length === 0) {
+              return { count: 0 };
+            }
+
+            // Then count participants in those sessions
+            return supabaseClient
+              .from('session_participants')
+              .select('id', { count: 'exact', head: true })
+              .in('session_id', sessionIds);
+          })()
+        : Promise.resolve({ count: 0 }),
+
       // Recent sessions (last 7 days)
       user.role === 'INSTRUCTOR'
-        ? prisma.session.count({
-            where: {
-              instructorId: user.id,
-              createdAt: {
-                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              },
-            },
-          })
-        : prisma.sessionParticipant.count({
-            where: {
-              userId: user.id,
-              joinedAt: {
-                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              },
-            },
-          }),
+        ? supabaseClient
+            .from('sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('instructor_id', user.id)
+            .gte('created_at', sevenDaysAgo)
+        : supabaseClient
+            .from('session_participants')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('joined_at', sevenDaysAgo),
     ]);
+
+    const sessionsCreated = sessionsCreatedResult.count || 0;
+    const sessionsParticipated = sessionsParticipatedResult.count || 0;
+    const activeSessions = activeSessionsResult.count || 0;
+    const totalParticipants = totalParticipantsResult.count || 0;
+    const recentSessions = recentSessionsResult.count || 0;
 
     const stats = {
       sessionsCreated,

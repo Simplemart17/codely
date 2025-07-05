@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/stores/user-store';
 import { SessionList } from '@/components/sessions/session-list';
 import { CreateSessionForm } from '@/components/sessions/create-session-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Navigation } from '@/components/layout/navigation';
 
 export default function SessionsPage() {
   const { user, loadUser } = useUserStore();
@@ -78,12 +78,15 @@ export default function SessionsPage() {
     }
 
     return (
-      <div className="min-h-screen bg-background py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <CreateSessionForm
-            onSuccess={handleCreateSuccess}
-            onCancel={handleCreateCancel}
-          />
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <CreateSessionForm
+              onSuccess={handleCreateSuccess}
+              onCancel={handleCreateCancel}
+            />
+          </div>
         </div>
       </div>
     );
@@ -91,6 +94,7 @@ export default function SessionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navigation />
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}

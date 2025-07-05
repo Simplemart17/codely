@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-
+    console.log('Creating user in database:', authUser.id, name, role, avatar);
     // Create user in database
     const user = await UserService.createUser({
       id: authUser.id,
