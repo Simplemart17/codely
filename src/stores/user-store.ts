@@ -144,11 +144,17 @@ export const useUserStore = create<UserState>()(
           }
         },
 
-        logout: () => set({ 
-          user: null, 
-          isAuthenticated: false,
-          error: null 
-        }),
+        logout: () => {
+          // Clear user state
+          set({
+            user: null,
+            isAuthenticated: false,
+            error: null
+          });
+
+          // Clear persisted state
+          localStorage.removeItem('user-store');
+        },
 
         // UI state management
         setLoading: (loading) => set({ isLoading: loading }),

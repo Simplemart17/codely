@@ -27,7 +27,7 @@ interface SessionState {
   deleteSession: (sessionId: string) => Promise<void>;
   
   // Data fetching
-  fetchUserSessions: (userId: string) => Promise<void>;
+  fetchUserSessions: (userId: string, filter?: string) => Promise<void>;
   fetchSession: (sessionId: string) => Promise<void>;
   
   // UI state
