@@ -49,7 +49,7 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
       errors.title = 'Title must be at least 3 characters';
     }
 
-    if (!formData.language || formData.language === '') {
+    if (!formData.language) {
       errors.language = 'Programming language is required';
     }
 
@@ -318,7 +318,7 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
                   value={newObjective}
                   onChange={(e) => setNewObjective(e.target.value)}
                   placeholder="Add a learning objective..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjective())}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addObjective())}
                 />
                 <Button type="button" onClick={addObjective} size="sm">
                   Add
@@ -357,7 +357,7 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   placeholder="Add a tag..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
                 />
                 <Button type="button" onClick={addTag} size="sm">
                   Add
@@ -479,5 +479,6 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
         </form>
       </CardContent>
     </Card>
+    </>
   );
 }

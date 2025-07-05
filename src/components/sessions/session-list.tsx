@@ -58,15 +58,6 @@ export function SessionList({
     return true;
   });
 
-  const getLanguageLabel = (language: Language): string => {
-    switch (language) {
-      case 'JAVASCRIPT': return 'JavaScript';
-      case 'PYTHON': return 'Python';
-      case 'CSHARP': return 'C#';
-      default: return language;
-    }
-  };
-
   const getStatusColor = (status: SessionStatus): string => {
     switch (status) {
       case 'ACTIVE': return 'bg-green-100 text-green-800';

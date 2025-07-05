@@ -7,8 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   SESSION_TEMPLATES, 
   SESSION_CATEGORIES, 
-  getTemplatesByLanguage, 
-  getTemplatesByCategory,
+  getTemplatesByLanguage,
   type SessionTemplate 
 } from '@/lib/session-templates';
 import type { Language } from '@/types';
