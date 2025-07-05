@@ -51,6 +51,7 @@ export interface SessionParticipant {
   sessionId: string;
   role: ParticipantRole;
   joinedAt: Date;
+  leftAt?: Date;
   isActive: boolean;
   cursorPosition?: {
     line: number;
@@ -73,19 +74,17 @@ export interface Operation {
 export interface SessionInvitation {
   id: string;
   sessionId: string;
-  inviterId: string;
-  inviteeId?: string;
-  email?: string;
-  role: ParticipantRole;
+  senderId: string;
+  recipientId: string;
+  email: string;
   status: InvitationStatus;
-  token: string;
-  expiresAt: Date;
+  expiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   // Relations
   session?: Session;
-  inviter?: User;
-  invitee?: User;
+  sender?: User;
+  recipient?: User;
 }
 
 export interface SessionRecording {
