@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { webSocketService } from '@/lib/services/websocket-service';
-import type { UserPresenceEvent } from '@/lib/services/websocket-service';
+import { RealtimeService } from '@/lib/services/realtime-service';
+import type { UserPresenceEvent } from '@/lib/services/realtime-service';
 import { useUserStore } from '@/stores/user-store';
 
 interface ActiveUser {
@@ -26,11 +26,14 @@ export function UserPresence({ sessionId }: UserPresenceProps) {
   useEffect(() => {
     if (!sessionId || !user) return;
 
+    // Create realtime service instance
+    const realtimeService = new RealtimeService();
+
     // Handle user presence updates
     const handleUserPresence = (event: UserPresenceEvent) => {
       setActiveUsers(prev => {
         const existingIndex = prev.findIndex(u => u.userId === event.userId);
-        
+
         if (existingIndex >= 0) {
           // Update existing user
           const updated = [...prev];
@@ -50,7 +53,7 @@ export function UserPresence({ sessionId }: UserPresenceProps) {
             cursorPosition: event.cursorPosition,
           }];
         }
-        
+
         return prev;
       });
     };
@@ -80,19 +83,17 @@ export function UserPresence({ sessionId }: UserPresenceProps) {
     };
 
     // Set up event listeners
-    webSocketService.onUserPresence(handleUserPresence);
-    webSocketService.onUserJoined(handleUserJoined);
-    webSocketService.onUserLeft(handleUserLeft);
+    realtimeService.onUserPresence(handleUserPresence);
+    realtimeService.onUserJoined(handleUserJoined);
+    realtimeService.onUserLeft(handleUserLeft);
 
-    // Send initial presence
-    webSocketService.sendUserPresence(true);
+    // Join session and send initial presence
+    realtimeService.joinSession(sessionId, user.id, user.name);
 
     // Cleanup
     return () => {
-      webSocketService.offUserPresence(handleUserPresence);
-      webSocketService.offUserJoined(handleUserJoined);
-      webSocketService.offUserLeft(handleUserLeft);
-      webSocketService.sendUserPresence(false);
+      realtimeService.leaveSession();
+      realtimeService.cleanup();
     };
   }, [sessionId, user]);
 

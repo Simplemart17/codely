@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUserStore } from '@/stores/user-store';
 
 interface DashboardStatsData {
   sessionsCreated: number;
@@ -17,7 +16,6 @@ export function DashboardStats() {
   const [stats, setStats] = useState<DashboardStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useUserStore();
 
   useEffect(() => {
     const fetchStats = async () => {
