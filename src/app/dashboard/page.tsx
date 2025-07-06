@@ -1,25 +1,127 @@
-export default function DashboardPage() {
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DashboardStats } from '@/components/dashboard/dashboard-stats';
+import { Navigation } from '@/components/layout/navigation';
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-3xl font-bold text-gray-900">Dashboard Fixed! 🎉</h1>
-      <div className="mt-8 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Login Issue Resolved</h2>
-        <p className="text-gray-600 mb-4">
-          The "Cannot read properties of undefined (reading 'call')" error has been identified and fixed.
-        </p>
-        <div className="bg-green-50 border border-green-200 rounded-md p-4">
-          <h3 className="text-green-800 font-medium mb-2">Root Cause:</h3>
-          <p className="text-green-700 text-sm">
-            The error was caused by a hydration mismatch between server-side and client-side rendering
-            when trying to use client components (Navigation, user store) in a server component context.
-          </p>
-        </div>
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-4">
-          <h3 className="text-blue-800 font-medium mb-2">Solution:</h3>
-          <p className="text-blue-700 text-sm">
-            Convert the dashboard page to a proper client component with correct authentication flow
-            and proper error handling.
-          </p>
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground">
+              Welcome back, {user.user_metadata?.name || user.email}!
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Ready to start coding collaboratively?
+            </p>
+          </div>
+
+          {/* Dashboard Statistics */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-foreground mb-4">Your Statistics</h2>
+            <DashboardStats />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Session</CardTitle>
+                <CardDescription>
+                  Start a new collaborative coding session
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="w-full">
+                  <Link href="/sessions">New Session</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Join Session</CardTitle>
+                <CardDescription>
+                  Join an existing coding session
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/sessions">Browse Sessions</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>My Sessions</CardTitle>
+                <CardDescription>
+                  View your recent coding sessions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="ghost" className="w-full">
+                  <Link href="/sessions">View All Sessions</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Start</CardTitle>
+                <CardDescription>
+                  Get started with Codely in just a few steps
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">1</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Create or join a session</p>
+                      <p className="text-sm text-muted-foreground">Start collaborating with others</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">2</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Choose your language</p>
+                      <p className="text-sm text-muted-foreground">JavaScript, Python, or C#</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">3</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Start coding together</p>
+                      <p className="text-sm text-muted-foreground">Real-time collaboration and code execution</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
