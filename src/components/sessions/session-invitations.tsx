@@ -44,7 +44,10 @@ export function SessionInvitations({
         {
           id: 'inv_1',
           sessionId,
+          senderId: 'user_1',
+          recipientId: 'recipient_1',
           inviterId: 'user_1',
+          inviteeId: 'recipient_1',
           email: 'student@example.com',
           role: 'LEARNER',
           status: 'PENDING',
@@ -74,8 +77,10 @@ export function SessionInvitations({
       const newInvitation: SessionInvitation = {
         id: `inv_${Date.now()}`,
         sessionId: data.sessionId,
+        senderId: 'current_user_id', // TODO: Get from auth context
+        recipientId: data.userId || 'unknown_recipient',
         inviterId: 'current_user_id', // TODO: Get from auth context
-        email: data.email,
+        email: data.email || '',
         inviteeId: data.userId,
         role: data.role,
         status: 'PENDING',
@@ -276,12 +281,33 @@ interface InvitationCardProps {
   onCopyLink: (token: string) => void;
 }
 
-function InvitationCard({ 
-  invitation, 
-  onResend, 
-  onRevoke, 
-  onCopyLink 
+function computeExpiryInfo(expiresAt: Date | undefined) {
+  if (!expiresAt) return { isExpired: false, hoursUntilExpiry: 0 };
+  const now = Date.now();
+  const expiryTime = new Date(expiresAt).getTime();
+  return {
+    isExpired: now > expiryTime,
+    hoursUntilExpiry: Math.max(0, Math.floor((expiryTime - now) / (1000 * 60 * 60))),
+  };
+}
+
+function InvitationCard({
+  invitation,
+  onResend,
+  onRevoke,
+  onCopyLink
 }: InvitationCardProps) {
+  const [expiryInfo, setExpiryInfo] = useState(() => computeExpiryInfo(invitation.expiresAt));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setExpiryInfo(computeExpiryInfo(invitation.expiresAt));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [invitation.expiresAt]);
+
+  const { isExpired, hoursUntilExpiry } = expiryInfo;
+
   const getStatusColor = (status: InvitationStatus) => {
     switch (status) {
       case 'PENDING':
@@ -297,10 +323,6 @@ function InvitationCard({
     }
   };
 
-  const isExpired = new Date() > new Date(invitation.expiresAt);
-  const timeUntilExpiry = new Date(invitation.expiresAt).getTime() - Date.now();
-  const hoursUntilExpiry = Math.max(0, Math.floor(timeUntilExpiry / (1000 * 60 * 60)));
-
   return (
     <Card>
       <CardContent className="p-4">
@@ -309,7 +331,7 @@ function InvitationCard({
             <div className="flex items-center gap-3 mb-2">
               <Mail className="h-4 w-4 text-gray-500" />
               <span className="font-medium">
-                {invitation.email || invitation.invitee?.email || 'Unknown'}
+                {invitation.email || 'Unknown'}
               </span>
               <Badge variant="outline" className="text-xs">
                 {invitation.role.toLowerCase()}

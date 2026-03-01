@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService } from '@/lib/services/user-service';
-
-interface SessionSnapshot {
-  id: string;
-  sessionId: string;
-  title: string;
-  description?: string;
-  code: string;
-  metadata: Record<string, any>;
-  createdBy: string;
-  createdAt: Date;
-}
+import { SessionService } from '@/lib/services/session-service';
 
 /**
  * GET /api/sessions/[id]/snapshots - Get snapshots for a session
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication
@@ -32,11 +22,20 @@ export async function GET(
       );
     }
 
-    const sessionId = params.id;
+    const resolvedParams = await params;
+    const sessionId = resolvedParams.id;
 
-    // For now, return empty array since snapshots aren't implemented in the database yet
-    // This prevents the UI from showing mock data
-    const snapshots: SessionSnapshot[] = [];
+    // Check if user can access this session
+    const canAccess = await SessionService.canUserAccessSession(sessionId, authUser.id);
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Get snapshots for the session
+    const snapshots = await SessionService.getSessionSnapshots(sessionId);
 
     return NextResponse.json({ snapshots });
   } catch (error) {
@@ -53,7 +52,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication
@@ -76,7 +75,8 @@ export async function POST(
       );
     }
 
-    const sessionId = params.id;
+    const resolvedParams = await params;
+    const sessionId = resolvedParams.id;
     const body = await request.json();
 
     // Validate required fields
@@ -87,23 +87,24 @@ export async function POST(
       );
     }
 
-    // For now, return a mock response since snapshots aren't implemented in the database yet
-    // In a real implementation, you would save to the database here
-    const snapshot: SessionSnapshot = {
-      id: `snap_${Date.now()}`,
+    // Check if user can access this session
+    const canAccess = await SessionService.canUserAccessSession(sessionId, user.id);
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Create the snapshot
+    const snapshot = await SessionService.createSessionSnapshot({
       sessionId,
       title: body.title,
       description: body.description,
       code: body.code,
-      metadata: {
-        ...body.metadata,
-        lineCount: body.code.split('\n').length,
-        characterCount: body.code.length,
-        createdAt: new Date().toISOString(),
-      },
+      metadata: body.metadata,
       createdBy: user.id,
-      createdAt: new Date(),
-    };
+    });
 
     return NextResponse.json({ snapshot });
   } catch (error) {

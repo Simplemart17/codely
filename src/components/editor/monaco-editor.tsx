@@ -157,7 +157,7 @@ export function MonacoEditor({
     if (isEditorReady && editorRef.current) {
       const model = editorRef.current.getModel();
       if (model) {
-        const monacoLanguage = getMonacoLanguage(language);
+        const monacoLanguage = LANGUAGE_MAP[language];
         // Create a new model with the new language
         const newModel = monaco.editor.createModel(
           model.getValue(),
@@ -169,7 +169,7 @@ export function MonacoEditor({
         model.dispose();
       }
     }
-  }, [language, isEditorReady, monaco]);
+  }, [language, isEditorReady]);
 
   return (
     <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">

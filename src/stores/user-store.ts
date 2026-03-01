@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { User, UserPreferences } from '@/types';
+import { updateUser as updateUserAction } from '@/lib/actions/user-actions';
 
 interface UserState {
   // User data
@@ -33,16 +34,17 @@ export const useUserStore = create<UserState>()(
         error: null,
 
         // User actions
-        setUser: (user) => set({
-          user,
-          isAuthenticated: !!user,
-          error: null
-        }),
+        setUser: (user) =>
+          set({
+            user,
+            isAuthenticated: !!user,
+            error: null,
+          }),
 
+        // loadUser still uses API route (GET /api/users)
         loadUser: async () => {
           set({ isLoading: true, error: null });
           try {
-            // Call API to get current user from database
             const response = await fetch('/api/users');
 
             if (response.ok) {
@@ -50,28 +52,31 @@ export const useUserStore = create<UserState>()(
               set({
                 user,
                 isAuthenticated: true,
-                isLoading: false
+                isLoading: false,
               });
             } else if (response.status === 404) {
-              // User not found in database, clear state
               set({
                 user: null,
                 isAuthenticated: false,
-                isLoading: false
+                isLoading: false,
               });
             } else {
               throw new Error('Failed to load user');
             }
           } catch (error) {
             set({
-              error: error instanceof Error ? error.message : 'Failed to load user',
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to load user',
               isLoading: false,
               user: null,
-              isAuthenticated: false
+              isAuthenticated: false,
             });
           }
         },
 
+        // updateUser uses Server Action
         updateUser: async (updates) => {
           const currentUser = get().user;
           if (!currentUser) {
@@ -80,34 +85,33 @@ export const useUserStore = create<UserState>()(
 
           set({ isLoading: true, error: null });
           try {
-            // Call API to update user in database
-            const response = await fetch('/api/users', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(updates),
+            const result = await updateUserAction({
+              name: updates.name,
+              role: updates.role,
+              avatar: updates.avatar,
             });
 
-            if (!response.ok) {
-              throw new Error('Failed to update user');
+            if (!result.success) {
+              throw new Error(result.error);
             }
 
-            const { user: updatedUser } = await response.json();
-
             set({
-              user: updatedUser,
-              isLoading: false
+              user: result.data,
+              isLoading: false,
             });
           } catch (error) {
             set({
-              error: error instanceof Error ? error.message : 'Failed to update user',
-              isLoading: false
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to update user',
+              isLoading: false,
             });
             throw error;
           }
         },
 
+        // updatePreferences uses Server Action
         updatePreferences: async (preferences) => {
           const currentUser = get().user;
           if (!currentUser) {
@@ -116,39 +120,36 @@ export const useUserStore = create<UserState>()(
 
           set({ isLoading: true, error: null });
           try {
-            // Call API to update user preferences in database
-            const response = await fetch('/api/users', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ preferences }),
-            });
+            const result = await updateUserAction({ preferences });
 
-            if (!response.ok) {
-              throw new Error('Failed to update preferences');
+            if (!result.success) {
+              throw new Error(result.error);
             }
 
-            const { user: updatedUser } = await response.json();
-
             set({
-              user: updatedUser,
-              isLoading: false
+              user: result.data,
+              isLoading: false,
             });
           } catch (error) {
             set({
-              error: error instanceof Error ? error.message : 'Failed to update preferences',
-              isLoading: false
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to update preferences',
+              isLoading: false,
             });
             throw error;
           }
         },
 
-        logout: () => set({ 
-          user: null, 
-          isAuthenticated: false,
-          error: null 
-        }),
+        logout: () => {
+          set({
+            user: null,
+            isAuthenticated: false,
+            error: null,
+          });
+          localStorage.removeItem('user-store');
+        },
 
         // UI state management
         setLoading: (loading) => set({ isLoading: loading }),
@@ -157,9 +158,9 @@ export const useUserStore = create<UserState>()(
       }),
       {
         name: 'user-store',
-        partialize: (state) => ({ 
+        partialize: (state) => ({
           user: state.user,
-          isAuthenticated: state.isAuthenticated 
+          isAuthenticated: state.isAuthenticated,
         }),
       }
     ),

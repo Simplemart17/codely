@@ -2,81 +2,147 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Code2, Users, Zap, BookOpen } from 'lucide-react';
 
 export default async function Home() {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If user is authenticated, redirect to dashboard
   if (user) {
     redirect('/dashboard');
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-center min-h-screen py-12">
-          <div className="text-center">
-            <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 mb-6">
-              Welcome to{' '}
-              <span className="text-blue-600">Codely</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl">
-              The interactive online coding education platform where instructors and learners
-              collaborate in real-time. Support for JavaScript, Python, and C#.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg">
-                <Link href="/signup">Get Started</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/login">Sign In</Link>
-              </Button>
-            </div>
+    <div className="min-h-screen bg-background">
+      {/* Navigation */}
+      <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2">
+            <Code2 className="h-6 w-6 text-primary" />
+            <span className="text-lg font-bold">Codely</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/signup">Get Started</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden pt-14">
+        {/* Grid background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.3)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.3)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
+
+        <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
+          <div className="mb-6 inline-flex items-center rounded-full border border-border bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
+            <Zap className="mr-2 h-3.5 w-3.5 text-primary" />
+            Real-time collaborative coding
           </div>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
-            <div className="text-center">
-              <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+          <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+            Code Together,{' '}
+            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Learn Faster
+            </span>
+          </h1>
+
+          <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
+            The collaborative coding platform where instructors and learners
+            build together in real-time. JavaScript, Python, and C# with
+            instant sync.
+          </p>
+
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Button size="lg" className="h-12 px-8 text-base" asChild>
+              <Link href="/signup">Start Coding Free</Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-12 px-8 text-base"
+              asChild
+            >
+              <Link href="/login">Sign In</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-border bg-muted/30 py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-16 text-center">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              Built for Learning
+            </h2>
+            <p className="mx-auto max-w-2xl text-muted-foreground">
+              Everything you need to teach and learn programming in a
+              collaborative environment.
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="rounded-xl border border-border bg-card p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Users className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Real-time Collaboration</h3>
-              <p className="text-gray-600">
-                Code together with multiple users in real-time with live cursors and instant synchronization.
+              <h3 className="mb-2 text-lg font-semibold">
+                Real-time Collaboration
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Code together with live cursors, instant synchronization, and
+                conflict-free editing powered by CRDTs.
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
+            <div className="rounded-xl border border-border bg-card p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Code2 className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Multi-language Support</h3>
-              <p className="text-gray-600">
-                Support for JavaScript, Python, and C# with syntax highlighting and code execution.
+              <h3 className="mb-2 text-lg font-semibold">
+                Multi-Language Support
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                JavaScript, Python, and C# with full syntax highlighting,
+                autocompletion, and code execution.
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
+            <div className="rounded-xl border border-border bg-card p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <BookOpen className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Educational Focus</h3>
-              <p className="text-gray-600">
-                Designed specifically for coding education with instructor and learner roles.
+              <h3 className="mb-2 text-lg font-semibold">
+                Education Focused
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Designed for instructors and learners with role-based access,
+                session templates, and progress tracking.
               </p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Code2 className="h-4 w-4" />
+            <span>Codely</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Collaborative coding education platform
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

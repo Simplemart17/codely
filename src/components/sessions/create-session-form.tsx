@@ -4,12 +4,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SessionTemplateSelector } from './session-template-selector';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
-import type { CreateSessionData, Language } from '@/types';
-import type { SessionTemplate } from '@/lib/session-templates';
+import type { Language } from '@/types';
 
 interface CreateSessionFormProps {
   onSuccess?: (sessionId: string) => void;
@@ -20,47 +26,32 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
   const router = useRouter();
   const { createSession, isLoading, error } = useSessionStore();
   const { user } = useUserStore();
-  
-  const [formData, setFormData] = useState<CreateSessionData>({
-    title: '',
-    description: '',
-    language: '' as Language, // No default language - force user to choose
-    maxParticipants: 10,
-    isPublic: true,
-    objectives: [],
-    tags: [],
-    estimatedDuration: 60,
-    difficulty: 'BEGINNER',
-    prerequisites: '',
-  });
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [language, setLanguage] = useState<Language | ''>('');
+  const [maxParticipants, setMaxParticipants] = useState(10);
+  const [isPublic, setIsPublic] = useState(true);
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [newObjective, setNewObjective] = useState('');
-  const [newTag, setNewTag] = useState('');
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<SessionTemplate | null>(null);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.title.trim()) {
+    if (!title.trim()) {
       errors.title = 'Session title is required';
-    } else if (formData.title.length < 3) {
+    } else if (title.length < 3) {
       errors.title = 'Title must be at least 3 characters';
     }
 
-    if (!formData.language || formData.language === '') {
+    if (!language) {
       errors.language = 'Programming language is required';
     }
 
-    if (formData.maxParticipants < 1) {
-      errors.maxParticipants = 'Must allow at least 1 participant';
-    } else if (formData.maxParticipants > 50) {
+    if (maxParticipants < 2) {
+      errors.maxParticipants = 'Must allow at least 2 participants';
+    } else if (maxParticipants > 50) {
       errors.maxParticipants = 'Maximum 50 participants allowed';
-    }
-
-    if (formData.estimatedDuration && (formData.estimatedDuration < 15 || formData.estimatedDuration > 480)) {
-      errors.estimatedDuration = 'Duration must be between 15 and 480 minutes';
     }
 
     setValidationErrors(errors);
@@ -75,7 +66,6 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
       return;
     }
 
-    // Check if user is an instructor
     if (user.role !== 'INSTRUCTOR') {
       setValidationErrors({ general: 'Only instructors can create sessions' });
       return;
@@ -87,7 +77,11 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
 
     try {
       const session = await createSession({
-        ...formData,
+        title,
+        description,
+        language: language as Language,
+        maxParticipants,
+        isPublic,
         instructorId: user.id,
       });
 
@@ -99,7 +93,6 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
     } catch (err) {
       console.error('Failed to create session:', err);
 
-      // Handle specific error messages
       if (err instanceof Error) {
         if (err.message.includes('Only instructors')) {
           setValidationErrors({ general: 'Only instructors can create sessions' });
@@ -114,370 +107,136 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
     }
   };
 
-  const handleInputChange = (field: keyof CreateSessionData, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear validation error when user starts typing
-    if (validationErrors[field]) {
-      setValidationErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const addObjective = () => {
-    if (newObjective.trim() && !formData.objectives?.includes(newObjective.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        objectives: [...(prev.objectives || []), newObjective.trim()]
-      }));
-      setNewObjective('');
-    }
-  };
-
-  const removeObjective = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      objectives: prev.objectives?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  const addTag = () => {
-    if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...(prev.tags || []), newTag.trim()]
-      }));
-      setNewTag('');
-    }
-  };
-
-  const removeTag = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  const handleTemplateSelect = (template: SessionTemplate) => {
-    setSelectedTemplate(template);
-    setFormData(prev => ({
-      ...prev,
-      title: template.name,
-      description: template.description,
-      language: template.language,
-      objectives: [...template.objectives],
-      tags: [...template.tags],
-      estimatedDuration: template.estimatedDuration,
-      difficulty: template.difficulty,
-      prerequisites: template.prerequisites || '',
-    }));
-    setShowTemplateSelector(false);
-  };
-
   return (
-    <>
-      {showTemplateSelector && (
-        <SessionTemplateSelector
-          onSelectTemplate={handleTemplateSelect}
-          selectedLanguage={formData.language || undefined}
-          onClose={() => setShowTemplateSelector(false)}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Session Title */}
+      <div className="space-y-2">
+        <Label htmlFor="title">Session Title *</Label>
+        <Input
+          id="title"
+          type="text"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (validationErrors.title) {
+              setValidationErrors(prev => ({ ...prev, title: '' }));
+            }
+          }}
+          placeholder="e.g., JavaScript Fundamentals"
+          aria-invalid={!!validationErrors.title}
         />
-      )}
+        {validationErrors.title && (
+          <p className="text-sm text-destructive">{validationErrors.title}</p>
+        )}
+      </div>
 
-      {selectedTemplate && (
-        <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-foreground">Using Template: {selectedTemplate.name}</h3>
-              <p className="text-sm text-muted-foreground">You can modify any of the pre-filled values below</p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedTemplate(null);
-                setFormData({
-                  title: '',
-                  description: '',
-                  language: '' as Language,
-                  maxParticipants: 10,
-                  isPublic: true,
-                  objectives: [],
-                  tags: [],
-                  estimatedDuration: 60,
-                  difficulty: 'BEGINNER',
-                  prerequisites: '',
-                });
-              }}
+      {/* Description */}
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Brief description of what you'll be teaching..."
+          rows={2}
+        />
+      </div>
+
+      {/* Language + Max Participants row */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Language *</Label>
+          <Select
+            value={language || undefined}
+            onValueChange={(v) => {
+              setLanguage(v as Language);
+              if (validationErrors.language) {
+                setValidationErrors(prev => ({ ...prev, language: '' }));
+              }
+            }}
+          >
+            <SelectTrigger
+              className="w-full"
+              aria-invalid={!!validationErrors.language}
             >
-              Clear Template
-            </Button>
-          </div>
-        </div>
-      )}
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Create New Session</CardTitle>
-            <CardDescription>
-              Start a new collaborative coding session for your students
-            </CardDescription>
-          </div>
-          {!selectedTemplate && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowTemplateSelector(true)}
-              className="shrink-0"
-            >
-              📝 Use Template
-            </Button>
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="JAVASCRIPT">JavaScript</SelectItem>
+              <SelectItem value="PYTHON">Python</SelectItem>
+              <SelectItem value="CSHARP">C#</SelectItem>
+            </SelectContent>
+          </Select>
+          {validationErrors.language && (
+            <p className="text-sm text-destructive">{validationErrors.language}</p>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Session Title */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">
-              Session Title *
-            </label>
-            <Input
-              id="title"
-              type="text"
-              value={formData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              placeholder="e.g., JavaScript Fundamentals"
-              className={validationErrors.title ? 'border-red-500' : ''}
-            />
-            {validationErrors.title && (
-              <p className="text-sm text-red-600 mt-1">{validationErrors.title}</p>
-            )}
-          </div>
 
-          {/* Description */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Brief description of what you'll be teaching..."
-              rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-          </div>
-
-          {/* Programming Language */}
-          <div>
-            <label htmlFor="language" className="block text-sm font-medium text-foreground mb-1">
-              Programming Language *
-            </label>
-            <select
-              id="language"
-              value={formData.language}
-              onChange={(e) => handleInputChange('language', e.target.value as Language)}
-              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
-            >
-              <option value="">Select a programming language...</option>
-              <option value="JAVASCRIPT">JavaScript</option>
-              <option value="PYTHON">Python</option>
-              <option value="CSHARP">C#</option>
-            </select>
-          </div>
-
-          {/* Max Participants */}
-          <div>
-            <label htmlFor="maxParticipants" className="block text-sm font-medium text-foreground mb-1">
-              Maximum Participants *
-            </label>
-            <Input
-              id="maxParticipants"
-              type="number"
-              min="1"
-              max="50"
-              value={formData.maxParticipants}
-              onChange={(e) => handleInputChange('maxParticipants', parseInt(e.target.value) || 1)}
-              className={validationErrors.maxParticipants ? 'border-red-500' : ''}
-            />
-            {validationErrors.maxParticipants && (
-              <p className="text-sm text-red-600 mt-1">{validationErrors.maxParticipants}</p>
-            )}
-          </div>
-
-          {/* Learning Objectives */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Learning Objectives
-            </label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newObjective}
-                  onChange={(e) => setNewObjective(e.target.value)}
-                  placeholder="Add a learning objective..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjective())}
-                />
-                <Button type="button" onClick={addObjective} size="sm">
-                  Add
-                </Button>
-              </div>
-              {formData.objectives && formData.objectives.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {formData.objectives.map((objective, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-secondary text-secondary-foreground rounded-md text-sm"
-                    >
-                      {objective}
-                      <button
-                        type="button"
-                        onClick={() => removeObjective(index)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Tags
-            </label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  placeholder="Add a tag..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                />
-                <Button type="button" onClick={addTag} size="sm">
-                  Add
-                </Button>
-              </div>
-              {formData.tags && formData.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {formData.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground rounded-md text-sm"
-                    >
-                      #{tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(index)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Difficulty Level */}
-          <div>
-            <label htmlFor="difficulty" className="block text-sm font-medium text-foreground mb-1">
-              Difficulty Level
-            </label>
-            <select
-              id="difficulty"
-              value={formData.difficulty}
-              onChange={(e) => handleInputChange('difficulty', e.target.value)}
-              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
-            >
-              <option value="BEGINNER">Beginner</option>
-              <option value="INTERMEDIATE">Intermediate</option>
-              <option value="ADVANCED">Advanced</option>
-            </select>
-          </div>
-
-          {/* Estimated Duration */}
-          <div>
-            <label htmlFor="estimatedDuration" className="block text-sm font-medium text-foreground mb-1">
-              Estimated Duration (minutes)
-            </label>
-            <Input
-              id="estimatedDuration"
-              type="number"
-              min="15"
-              max="480"
-              value={formData.estimatedDuration}
-              onChange={(e) => handleInputChange('estimatedDuration', parseInt(e.target.value) || 60)}
-              placeholder="60"
-            />
-          </div>
-
-          {/* Prerequisites */}
-          <div>
-            <label htmlFor="prerequisites" className="block text-sm font-medium text-foreground mb-1">
-              Prerequisites
-            </label>
-            <textarea
-              id="prerequisites"
-              value={formData.prerequisites}
-              onChange={(e) => handleInputChange('prerequisites', e.target.value)}
-              placeholder="What should students know before joining this session?"
-              rows={2}
-              className="w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:border-primary hover:border-border/80"
-            />
-          </div>
-
-          {/* Public/Private */}
-          <div className="flex items-center space-x-2">
-            <input
-              id="isPublic"
-              type="checkbox"
-              checked={formData.isPublic}
-              onChange={(e) => handleInputChange('isPublic', e.target.checked)}
-              className="rounded border-input text-primary focus:ring-primary focus:ring-offset-2"
-            />
-            <label htmlFor="isPublic" className="text-sm font-medium text-foreground">
-              Make this session public (others can discover and join)
-            </label>
-          </div>
-
-          {/* Error Messages */}
-          {(error || validationErrors.general) && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-600">
-                {error || validationErrors.general}
-              </p>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="maxParticipants">Max Participants *</Label>
+          <Input
+            id="maxParticipants"
+            type="number"
+            min="2"
+            max="50"
+            value={maxParticipants}
+            onChange={(e) => {
+              setMaxParticipants(parseInt(e.target.value) || 2);
+              if (validationErrors.maxParticipants) {
+                setValidationErrors(prev => ({ ...prev, maxParticipants: '' }));
+              }
+            }}
+            aria-invalid={!!validationErrors.maxParticipants}
+          />
+          {validationErrors.maxParticipants && (
+            <p className="text-sm text-destructive">{validationErrors.maxParticipants}</p>
           )}
+        </div>
+      </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3">
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-            )}
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="min-w-[120px]"
-            >
-              {isLoading ? 'Creating...' : 'Create Session'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      {/* Public toggle */}
+      <div className="flex items-center gap-2">
+        <input
+          id="isPublic"
+          type="checkbox"
+          checked={isPublic}
+          onChange={(e) => setIsPublic(e.target.checked)}
+          className="size-4 rounded border-input accent-primary"
+        />
+        <Label htmlFor="isPublic" className="font-normal">
+          Make this session public
+        </Label>
+      </div>
+
+      {/* Error Messages */}
+      {(error || validationErrors.general) && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
+          <p className="text-sm text-destructive">
+            {error || validationErrors.general}
+          </p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-2">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="min-w-[120px]"
+        >
+          {isLoading ? 'Creating...' : 'Create Session'}
+        </Button>
+      </div>
+    </form>
   );
 }

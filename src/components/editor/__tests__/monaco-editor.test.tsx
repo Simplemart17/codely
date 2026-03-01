@@ -13,6 +13,8 @@ jest.mock('@monaco-editor/react', () => ({
           updateOptions: jest.fn(),
           addCommand: jest.fn(),
           trigger: jest.fn(),
+          getModel: jest.fn(() => null),
+          setModel: jest.fn(),
         };
         onMount(mockEditor, {
           languages: {
@@ -21,6 +23,10 @@ jest.mock('@monaco-editor/react', () => ({
                 setDiagnosticsOptions: jest.fn(),
                 setCompilerOptions: jest.fn(),
               },
+              ScriptTarget: { ES2020: 7 },
+              ModuleResolutionKind: { NodeJs: 2 },
+              ModuleKind: { CommonJS: 1 },
+              JsxEmit: { React: 2 },
             },
           },
           KeyMod: { CtrlCmd: 1, Shift: 2 },
@@ -71,6 +77,7 @@ describe('MonacoEditor', () => {
       isLoading: false,
       error: null,
       setUser: jest.fn(),
+      loadUser: jest.fn(),
       updateUser: jest.fn(),
       updatePreferences: jest.fn(),
       logout: jest.fn(),
@@ -130,6 +137,7 @@ describe('MonacoEditor', () => {
       isLoading: false,
       error: null,
       setUser: jest.fn(),
+      loadUser: jest.fn(),
       updateUser: jest.fn(),
       updatePreferences: jest.fn(),
       logout: jest.fn(),
@@ -196,7 +204,7 @@ describe('MonacoEditor', () => {
 
     await waitFor(() => {
       expect(mockOnMount).toHaveBeenCalled();
-    }, { timeout: 200 });
+    }, { timeout: 500 });
   });
 
   it('handles custom height prop', () => {

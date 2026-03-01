@@ -87,7 +87,15 @@ export class CodeExecutionService {
 
   private mockJavaScriptExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
     try {
-      // Check for syntax errors
+      // Check for common errors first
+      if (code.includes('undefinedVariable')) {
+        return {
+          success: false,
+          output: '',
+          error: 'ReferenceError: undefinedVariable is not defined',
+        };
+      }
+
       if (code.includes('console.log')) {
         const matches = code.match(/console\.log\((.*?)\)/g);
         if (matches) {
@@ -102,7 +110,7 @@ export class CodeExecutionService {
             }
             return content;
           });
-          
+
           return {
             success: true,
             output: outputs.join('\n'),
@@ -114,15 +122,6 @@ export class CodeExecutionService {
         return {
           success: true,
           output: 'Function defined successfully',
-        };
-      }
-
-      // Check for common errors
-      if (code.includes('undefinedVariable')) {
-        return {
-          success: false,
-          output: '',
-          error: 'ReferenceError: undefinedVariable is not defined',
         };
       }
 
@@ -141,6 +140,21 @@ export class CodeExecutionService {
 
   private mockPythonExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
     try {
+      // Check for syntax errors first
+      const lines = code.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trimEnd();
+        if (line.includes('def ') || line.includes('if ') || line.includes('for ') || line.includes('while ')) {
+          if (!line.endsWith(':')) {
+            return {
+              success: false,
+              output: '',
+              error: `SyntaxError: invalid syntax (line ${i + 1})`,
+            };
+          }
+        }
+      }
+
       // Check for print statements
       if (code.includes('print(')) {
         const matches = code.match(/print\((.*?)\)/g);
@@ -156,7 +170,7 @@ export class CodeExecutionService {
             }
             return content;
           });
-          
+
           return {
             success: true,
             output: outputs.join('\n'),
@@ -169,21 +183,6 @@ export class CodeExecutionService {
           success: true,
           output: 'Function defined successfully',
         };
-      }
-
-      // Check for indentation errors
-      const lines = code.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.includes('def ') || line.includes('if ') || line.includes('for ') || line.includes('while ')) {
-          if (!line.endsWith(':')) {
-            return {
-              success: false,
-              output: '',
-              error: `SyntaxError: invalid syntax (line ${i + 1})`,
-            };
-          }
-        }
       }
 
       return {
@@ -201,6 +200,8 @@ export class CodeExecutionService {
 
   private mockCSharpExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
     try {
+      const hasClassDef = code.includes('class ') || code.includes('static ');
+
       // Check for Console.WriteLine
       if (code.includes('Console.WriteLine')) {
         const matches = code.match(/Console\.WriteLine\((.*?)\)/g);
@@ -216,7 +217,12 @@ export class CodeExecutionService {
             }
             return content;
           });
-          
+
+          // If inside a class definition, also include compilation message
+          if (hasClassDef) {
+            outputs.push('Code compiled and executed successfully');
+          }
+
           return {
             success: true,
             output: outputs.join('\n'),
@@ -224,7 +230,7 @@ export class CodeExecutionService {
         }
       }
 
-      if (code.includes('class ') || code.includes('static ')) {
+      if (hasClassDef) {
         return {
           success: true,
           output: 'Code compiled and executed successfully',
@@ -266,27 +272,32 @@ export class CodeExecutionService {
     let indentLevel = 0;
     
     for (const line of lines) {
-      const trimmedLine = line.trim();
-      
+      let trimmedLine = line.trim();
+
       if (!trimmedLine) {
         formattedLines.push('');
         continue;
       }
-      
+
+      // For C-style languages, ensure space before opening brace
+      if (language !== 'PYTHON') {
+        trimmedLine = trimmedLine.replace(/(\S)\{/g, '$1 {');
+      }
+
       // Decrease indent for closing braces/brackets
       if (trimmedLine.startsWith('}') || trimmedLine.startsWith(']') || trimmedLine.startsWith(')')) {
         indentLevel = Math.max(0, indentLevel - 1);
       }
-      
+
       // Add proper indentation
       const indent = '  '.repeat(indentLevel);
       formattedLines.push(indent + trimmedLine);
-      
+
       // Increase indent for opening braces/brackets
       if (trimmedLine.endsWith('{') || trimmedLine.endsWith('[') || trimmedLine.endsWith('(')) {
         indentLevel++;
       }
-      
+
       // Language-specific indentation rules
       if (language === 'PYTHON') {
         if (trimmedLine.endsWith(':')) {

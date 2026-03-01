@@ -132,6 +132,11 @@ export class OperationTransformer {
         break;
     }
 
+    // Clamp position to non-negative
+    if (transformed && transformedOp.position < 0) {
+      transformedOp = { ...transformedOp, position: 0 };
+    }
+
     return { operation: transformedOp, transformed, conflicts };
   }
 
@@ -402,41 +407,48 @@ export class OperationTransformer {
    * Create operation from Yjs event
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  static createOperationFromYEvent(event: Y.YEvent<any>, userId: string, sessionId: string): Operation[] {
+  static createOperationFromYEvent(event: any, userId: string, sessionId: string): Operation[] {
     const operations: Operation[] = [];
-    
-    if (event instanceof Y.YTextEvent) {
-      let index = 0;
-      
-      for (const change of event.changes.delta) {
-        const timestamp = Date.now();
-        
-        if (change.retain) {
-          index += change.retain;
-        } else if (change.insert) {
-          operations.push({
-            type: OperationType.INSERT,
-            position: index,
-            content: change.insert,
-            timestamp,
-            userId,
-            sessionId,
-            attributes: (change as { attributes?: Record<string, unknown> }).attributes
-          } as InsertOperation);
-          index += change.insert.length;
-        } else if (change.delete) {
-          operations.push({
-            type: OperationType.DELETE,
-            position: index,
-            length: change.delete,
-            timestamp,
-            userId,
-            sessionId
-          } as DeleteOperation);
-        }
+
+    // Support both Y.YTextEvent instances and plain objects with delta
+    const delta = event instanceof Y.YTextEvent
+      ? event.changes.delta
+      : event?.changes?.delta;
+
+    if (!delta) {
+      return operations;
+    }
+
+    let index = 0;
+
+    for (const change of delta) {
+      const timestamp = Date.now();
+
+      if (change.retain) {
+        index += change.retain;
+      } else if (change.insert) {
+        operations.push({
+          type: OperationType.INSERT,
+          position: index,
+          content: change.insert,
+          timestamp,
+          userId,
+          sessionId,
+          attributes: (change as { attributes?: Record<string, unknown> }).attributes
+        } as InsertOperation);
+        index += change.insert.length;
+      } else if (change.delete) {
+        operations.push({
+          type: OperationType.DELETE,
+          position: index,
+          length: change.delete,
+          timestamp,
+          userId,
+          sessionId
+        } as DeleteOperation);
       }
     }
-    
+
     return operations;
   }
 }

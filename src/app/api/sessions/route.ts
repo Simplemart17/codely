@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService } from '@/lib/services/user-service';
-import { prisma } from '@/lib/prisma';
-import type { Language, CreateSessionData } from '@/types';
+import { SessionService } from '@/lib/services/session-service';
+import type { Language } from '@/types';
 
 /**
  * POST /api/sessions - Create a new session
@@ -58,58 +58,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session in database
-    const session = await prisma.session.create({
-      data: {
-        title,
-        description: description || null,
-        instructorId: user.id,
-        language: language as Language,
-        maxParticipants: maxParticipants || 10,
-        isPublic: isPublic || false,
-        code: '', // Start with empty code
-      },
-      include: {
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                avatar: true,
-              },
-            },
-          },
-        },
-      },
+    const session = await SessionService.createSession({
+      title,
+      description,
+      instructorId: user.id,
+      language: language as Language,
+      maxParticipants: maxParticipants || 10,
+      isPublic: isPublic || false,
     });
 
-    // Transform to our Session type
-    const sessionResponse = {
-      id: session.id,
-      title: session.title,
-      description: session.description,
-      instructorId: session.instructorId,
-      language: session.language,
-      status: session.status,
-      maxParticipants: session.maxParticipants,
-      isPublic: session.isPublic,
-      code: session.code,
-      participants: session.participants.map(p => ({
-        id: p.id,
-        userId: p.userId,
-        sessionId: p.sessionId,
-        role: p.role,
-        joinedAt: p.joinedAt,
-        isActive: p.isActive,
-        cursorPosition: p.cursorPosition,
-      })),
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-    };
-
-    return NextResponse.json({ session: sessionResponse }, { status: 201 });
+    return NextResponse.json({ session }, { status: 201 });
   } catch (error) {
     console.error('Error creating session:', error);
     return NextResponse.json(
@@ -147,88 +105,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'all';
 
-    let whereClause: any = {};
+    // Get sessions using the SessionService
+    const sessions = await SessionService.getSessionsForUser(user.id, user.role, filter);
 
-    switch (filter) {
-      case 'my-sessions':
-        if (user.role === 'INSTRUCTOR') {
-          whereClause.instructorId = user.id;
-        } else {
-          // For learners, show sessions they participate in
-          whereClause.participants = {
-            some: {
-              userId: user.id,
-            },
-          };
-        }
-        break;
-      case 'public':
-        whereClause.isPublic = true;
-        break;
-      case 'all':
-      default:
-        // Show all sessions user has access to
-        whereClause.OR = [
-          { instructorId: user.id }, // Sessions they created
-          { isPublic: true }, // Public sessions
-          {
-            participants: {
-              some: {
-                userId: user.id,
-              },
-            },
-          }, // Sessions they participate in
-        ];
-        break;
-    }
-
-    const sessions = await prisma.session.findMany({
-      where: whereClause,
-      include: {
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                avatar: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
-
-    // Transform to our Session type
-    const sessionsResponse = sessions.map(session => ({
-      id: session.id,
-      title: session.title,
-      description: session.description,
-      instructorId: session.instructorId,
-      language: session.language,
-      status: session.status,
-      maxParticipants: session.maxParticipants,
-      isPublic: session.isPublic,
-      code: session.code,
-      participants: session.participants.map(p => ({
-        id: p.id,
-        userId: p.userId,
-        sessionId: p.sessionId,
-        role: p.role,
-        joinedAt: p.joinedAt,
-        isActive: p.isActive,
-        cursorPosition: p.cursorPosition,
-      })),
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-    }));
-
-    return NextResponse.json({ sessions: sessionsResponse });
+    return NextResponse.json({ sessions });
   } catch (error) {
     console.error('Error fetching sessions:', error);
     return NextResponse.json(

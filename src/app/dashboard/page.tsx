@@ -2,12 +2,19 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { DashboardStats } from '@/components/dashboard/dashboard-stats';
+import { ClientLayout } from '@/components/layout/client-layout';
+import { Plus, Users, Monitor } from 'lucide-react';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -16,112 +23,83 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
+  const displayName = user.user_metadata?.name || user.email;
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground">
-              Welcome back, {user.user_metadata?.name || user.email}!
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Ready to start coding collaboratively?
-            </p>
-          </div>
+    <ClientLayout>
+      <div className="flex-1 p-6 lg:p-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Welcome back, {displayName}
+          </h1>
+          <p className="text-muted-foreground">
+            Here&apos;s what&apos;s happening with your coding sessions.
+          </p>
+        </div>
 
-          {/* Dashboard Statistics */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-foreground mb-4">Your Statistics</h2>
-            <DashboardStats />
-          </div>
+        {/* Stats */}
+        <div className="mb-8">
+          <DashboardStats />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
+          <div className="grid gap-4 md:grid-cols-3">
             <Card>
-              <CardHeader>
-                <CardTitle>Create Session</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Plus className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-base">Create Session</CardTitle>
                 <CardDescription>
                   Start a new collaborative coding session
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild className="w-full">
-                  <Link href="/sessions">New Session</Link>
+                  <Link href="/sessions?create=true">New Session</Link>
                 </Button>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Join Session</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-base">Browse Sessions</CardTitle>
                 <CardDescription>
                   Join an existing coding session
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild variant="outline" className="w-full">
-                  <Link href="/sessions">Browse Sessions</Link>
+                  <Link href="/sessions">Browse</Link>
                 </Button>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>My Sessions</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Monitor className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-base">My Sessions</CardTitle>
                 <CardDescription>
                   View your recent coding sessions
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button asChild variant="ghost" className="w-full">
-                  <Link href="/sessions">View All Sessions</Link>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/sessions?filter=my-sessions">View All</Link>
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Start</CardTitle>
-                <CardDescription>
-                  Get started with Codely in just a few steps
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-primary font-semibold">1</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Create or join a session</p>
-                      <p className="text-sm text-muted-foreground">Start collaborating with others</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-primary font-semibold">2</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Choose your language</p>
-                      <p className="text-sm text-muted-foreground">JavaScript, Python, or C#</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-primary font-semibold">3</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Start coding together</p>
-                      <p className="text-sm text-muted-foreground">Real-time collaboration and code execution</p>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
-    </div>
+    </ClientLayout>
   );
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { webSocketService } from '@/lib/services/websocket-service';
-import type { CodeChangeEvent, LanguageChangeEvent } from '@/lib/services/websocket-service';
+import { RealtimeService } from '@/lib/services/realtime-service';
+import type { CodeChangeEvent, LanguageChangeEvent } from '@/lib/services/realtime-service';
 
 // Extend Window interface for auto-save timeout
 declare global {
@@ -60,9 +60,10 @@ export function CodingInterface({
     setCode(newCode);
     onCodeChange?.(newCode);
 
-    // Send real-time update via WebSocket
+    // Send real-time update via Supabase Realtime
     if (sessionId && user) {
-      webSocketService.sendCodeChange(newCode, language);
+      const realtimeService = new RealtimeService();
+      realtimeService.sendCodeChange(newCode, language);
     }
 
     // Auto-save code changes to session (debounced)
@@ -88,9 +89,10 @@ export function CodingInterface({
     setLanguage(newLanguage);
     onLanguageChange?.(newLanguage);
 
-    // Send real-time language update via WebSocket
+    // Send real-time language update via Supabase Realtime
     if (sessionId && user) {
-      webSocketService.sendLanguageChange(newLanguage);
+      const realtimeService = new RealtimeService();
+      realtimeService.sendLanguageChange(newLanguage);
     }
 
     // Update session with new language if sessionId is provided
@@ -171,13 +173,12 @@ export function CodingInterface({
     }
   }, [code, language, sessionId, updateSession, isSaving]);
 
-  // WebSocket connection and event handling
+  // Supabase Realtime connection and event handling
   useEffect(() => {
     if (!sessionId || !user) return;
 
-    // Connect to WebSocket and join session
-    webSocketService.connect();
-    webSocketService.joinSession(sessionId, user.id);
+    // Create realtime service instance
+    const realtimeService = new RealtimeService();
 
     // Handle incoming code changes
     const handleIncomingCodeChange = (event: CodeChangeEvent) => {
@@ -191,19 +192,21 @@ export function CodingInterface({
     // Handle incoming language changes
     const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
       if (event.userId !== user.id) {
-        setLanguage(event.language);
+        setLanguage(event.language as Language);
       }
     };
 
     // Set up event listeners
-    webSocketService.onCodeChange(handleIncomingCodeChange);
-    webSocketService.onLanguageChange(handleIncomingLanguageChange);
+    realtimeService.onCodeChange(handleIncomingCodeChange);
+    realtimeService.onLanguageChange(handleIncomingLanguageChange);
+
+    // Join session
+    realtimeService.joinSession(sessionId, user.id, user.name);
 
     // Cleanup on unmount
     return () => {
-      webSocketService.offCodeChange(handleIncomingCodeChange);
-      webSocketService.offLanguageChange(handleIncomingLanguageChange);
-      webSocketService.leaveSession();
+      realtimeService.leaveSession();
+      realtimeService.cleanup();
     };
   }, [sessionId, user]);
 
