@@ -3,20 +3,75 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SessionMetadata } from '@/components/sessions/session-metadata';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
+import { ClientLayout } from '@/components/layout/client-layout';
 import { formatDate } from '@/lib/utils';
+import {
+  ArrowLeft,
+  Code2,
+  Clock,
+  Users,
+  Globe,
+  Lock,
+  Play,
+  LogOut,
+} from 'lucide-react';
+
+function getLanguageLabel(language: string): string {
+  switch (language) {
+    case 'JAVASCRIPT':
+      return 'JavaScript';
+    case 'PYTHON':
+      return 'Python';
+    case 'CSHARP':
+      return 'C#';
+    default:
+      return language;
+  }
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    case 'PAUSED':
+      return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+    case 'ENDED':
+      return 'bg-muted text-muted-foreground';
+    default:
+      return '';
+  }
+}
 
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.id as string;
-  
-  const { currentSession, participants, fetchSession, joinSession, leaveSession, isLoading, error } = useSessionStore();
+
+  const {
+    currentSession,
+    participants,
+    fetchSession,
+    joinSession,
+    leaveSession,
+    isLoading,
+    error,
+  } = useSessionStore();
   const { user } = useUserStore();
-  
+
   const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
@@ -27,11 +82,9 @@ export default function SessionDetailPage() {
 
   const handleJoinSession = async () => {
     if (!user || !sessionId) return;
-    
     setIsJoining(true);
     try {
-      await joinSession(sessionId, user.id);
-      // Navigate to the coding interface (to be implemented)
+      await joinSession(sessionId);
       router.push(`/sessions/${sessionId}/code`);
     } catch (err) {
       console.error('Failed to join session:', err);
@@ -42,218 +95,251 @@ export default function SessionDetailPage() {
 
   const handleLeaveSession = async () => {
     if (!user || !sessionId) return;
-    
     try {
-      await leaveSession(sessionId, user.id);
+      await leaveSession(sessionId);
     } catch (err) {
       console.error('Failed to leave session:', err);
     }
   };
 
-  const getLanguageLabel = (language: string): string => {
-    switch (language) {
-      case 'JAVASCRIPT': return 'JavaScript';
-      case 'PYTHON': return 'Python';
-      case 'CSHARP': return 'C#';
-      default: return language;
-    }
-  };
-
-  const isParticipant = user && participants.some(p => p.userId === user.id && p.isActive);
+  const isParticipant =
+    user && participants.some((p) => p.userId === user.id && p.isActive);
   const isInstructor = user && currentSession?.instructorId === user.id;
+  const activeParticipants = participants.filter((p) => p.isActive);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading session...</p>
+      <ClientLayout>
+        <div className="flex-1 p-6 lg:p-8">
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-96" />
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Skeleton className="col-span-2 h-64" />
+              <Skeleton className="h-64" />
+            </div>
+          </div>
         </div>
-      </div>
+      </ClientLayout>
     );
   }
 
   if (error || !currentSession) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Session Not Found</CardTitle>
-            <CardDescription>
-              {error || 'The session you are looking for does not exist or has been removed.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/sessions')} className="w-full">
-              Back to Sessions
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <ClientLayout>
+        <div className="flex flex-1 items-center justify-center p-6">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Session Not Found</CardTitle>
+              <CardDescription>
+                {error ||
+                  'The session you are looking for does not exist or has been removed.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => router.push('/sessions')}
+                className="w-full"
+              >
+                Back to Sessions
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </ClientLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">
-                  {currentSession.title}
-                </h1>
-                <p className="mt-2 text-muted-foreground">
-                  {currentSession.description || 'No description provided'}
-                </p>
-              </div>
-              <div className="flex space-x-3">
+    <ClientLayout>
+      <div className="flex-1 p-6 lg:p-8">
+        {/* Back + Actions */}
+        <div className="mb-6 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/sessions')}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Sessions
+          </Button>
+          <div className="flex items-center gap-2">
+            {isInstructor ? (
+              <Button
+                onClick={() => router.push(`/sessions/${sessionId}/code`)}
+              >
+                <Code2 className="mr-2 h-4 w-4" />
+                Open Editor
+              </Button>
+            ) : isParticipant ? (
+              <>
                 <Button
-                  variant="outline"
-                  onClick={() => router.push('/sessions')}
+                  onClick={() => router.push(`/sessions/${sessionId}/code`)}
                 >
-                  Back to Sessions
+                  <Play className="mr-2 h-4 w-4" />
+                  Continue Coding
                 </Button>
-                {isInstructor ? (
-                  <Button onClick={() => router.push(`/sessions/${sessionId}/code`)}>
-                    Manage Session
-                  </Button>
-                ) : isParticipant ? (
-                  <div className="flex space-x-2">
-                    <Button onClick={() => router.push(`/sessions/${sessionId}/code`)}>
-                      Continue Coding
-                    </Button>
-                    <Button variant="outline" onClick={handleLeaveSession}>
-                      Leave Session
-                    </Button>
-                  </div>
-                ) : (
-                  <Button 
-                    onClick={handleJoinSession}
-                    disabled={isJoining || currentSession.status !== 'ACTIVE'}
-                  >
-                    {isJoining ? 'Joining...' : 'Join Session'}
-                  </Button>
-                )}
-              </div>
-            </div>
+                <Button variant="outline" onClick={handleLeaveSession}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Leave
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={handleJoinSession}
+                disabled={isJoining || currentSession.status !== 'ACTIVE'}
+              >
+                {isJoining ? 'Joining...' : 'Join Session'}
+              </Button>
+            )}
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Session Details */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Session Metadata */}
-              <SessionMetadata session={currentSession} />
+        {/* Title */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl font-bold tracking-tight">
+              {currentSession.title}
+            </h1>
+            <Badge variant="outline" className={getStatusColor(currentSession.status)}>
+              {currentSession.status.toLowerCase()}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground">
+            {currentSession.description || 'No description provided'}
+          </p>
+        </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Session Timeline</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Content */}
+          <div className="space-y-6 lg:col-span-2">
+            <SessionMetadata session={currentSession} />
+
+            {/* Details Grid */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Session Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Code2 className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Language</label>
-                      <p className="text-lg font-semibold">{getLanguageLabel(currentSession.language)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Status</label>
-                      <p className={`text-lg font-semibold ${
-                        currentSession.status === 'ACTIVE' ? 'text-green-600' :
-                        currentSession.status === 'PAUSED' ? 'text-yellow-600' :
-                        'text-gray-600'
-                      }`}>
-                        {currentSession.status.toLowerCase()}
+                      <p className="text-xs text-muted-foreground">Language</p>
+                      <p className="font-medium">
+                        {getLanguageLabel(currentSession.language)}
                       </p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Participants</label>
-                      <p className="text-lg font-semibold">
-                        {participants.filter(p => p.isActive).length} / {currentSession.maxParticipants}
+                      <p className="text-xs text-muted-foreground">
+                        Participants
+                      </p>
+                      <p className="font-medium">
+                        {activeParticipants.length} /{' '}
+                        {currentSession.maxParticipants}
                       </p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {currentSession.isPublic ? (
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    )}
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Visibility</label>
-                      <p className="text-lg font-semibold">
+                      <p className="text-xs text-muted-foreground">
+                        Visibility
+                      </p>
+                      <p className="font-medium">
                         {currentSession.isPublic ? 'Public' : 'Private'}
                       </p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Created</label>
-                      <p className="text-lg font-semibold">{formatDate(currentSession.createdAt)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                      <p className="text-lg font-semibold">{formatDate(currentSession.updatedAt)}</p>
-                    </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Code Preview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Code Preview</CardTitle>
-                  <CardDescription>
-                    Current code in the session
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-gray-900 text-gray-100 p-4 rounded-md font-mono text-sm overflow-x-auto">
-                    <pre>{currentSession.code || '// No code yet...'}</pre>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Participants */}
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Participants ({participants.filter(p => p.isActive).length})</CardTitle>
-                  <CardDescription>
-                    Active session participants
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {participants.filter(p => p.isActive).length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">
-                        No active participants
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Created</p>
+                      <p className="font-medium">
+                        {formatDate(currentSession.createdAt)}
                       </p>
-                    ) : (
-                      participants
-                        .filter(p => p.isActive)
-                        .map((participant) => (
-                          <div key={participant.id} className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-semibold text-sm">
-                                {participant.userId.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">
-                                {participant.userId === currentSession.instructorId ? 'Instructor' : 'Learner'}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {participant.role.toLowerCase()}
-                              </p>
-                            </div>
-                            {participant.userId === currentSession.instructorId && (
-                              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                                Host
-                              </span>
-                            )}
-                          </div>
-                        ))
-                    )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Code Preview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Code Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg bg-zinc-950 p-4 font-mono text-sm text-zinc-300 overflow-x-auto">
+                  <pre>{currentSession.code || '// No code yet...'}</pre>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Participants ({activeParticipants.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activeParticipants.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-4">
+                    No active participants
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {activeParticipants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="flex items-center gap-3"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">
+                            {participant.userId.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {participant.userId ===
+                            currentSession.instructorId
+                              ? 'Instructor'
+                              : 'Learner'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {participant.role.toLowerCase()}
+                          </p>
+                        </div>
+                        {participant.userId ===
+                          currentSession.instructorId && (
+                          <Badge variant="secondary" className="text-xs">
+                            Host
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Separator className="my-4" />
+                <p className="text-xs text-muted-foreground text-center">
+                  {currentSession.maxParticipants - activeParticipants.length}{' '}
+                  spots remaining
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
-    </div>
+    </ClientLayout>
   );
 }

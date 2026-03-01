@@ -23,6 +23,7 @@ export function DashboardStats() {
         setIsLoading(true);
         const response = await fetch('/api/dashboard/stats');
         
+        if (response.status === 401) return;
         if (!response.ok) {
           throw new Error('Failed to fetch dashboard stats');
         }

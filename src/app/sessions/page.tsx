@@ -5,39 +5,76 @@ import { useUserStore } from '@/stores/user-store';
 import { SessionList } from '@/components/sessions/session-list';
 import { CreateSessionForm } from '@/components/sessions/create-session-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Navigation } from '@/components/layout/navigation';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ClientLayout } from '@/components/layout/client-layout';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
 
 export default function SessionsPage() {
-  const { user, loadUser } = useUserStore();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const { user, isLoading, loadUser } = useUserStore();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'my-sessions' | 'public'>('all');
 
   useEffect(() => {
-    // Load user data from database
     loadUser();
   }, [loadUser]);
 
-  const handleCreateSession = () => {
-    // Only allow instructors to create sessions
-    if (user?.role === 'INSTRUCTOR') {
-      setShowCreateForm(true);
-    }
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
   };
 
-  const handleCreateSuccess = (sessionId: string) => {
-    setShowCreateForm(false);
-    // Could navigate to the new session or refresh the list
-    console.log('Session created:', sessionId);
-  };
-
-  const handleCreateCancel = () => {
-    setShowCreateForm(false);
-  };
+  if (isLoading) {
+    return (
+      <ClientLayout>
+        <div className="flex-1 p-6 lg:p-8 space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <Skeleton className="h-10 w-72" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </ClientLayout>
+    );
+  }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Authentication Required</CardTitle>
@@ -47,7 +84,7 @@ export default function SessionsPage() {
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full">
-              <a href="/login">Sign In</a>
+              <Link href="/login">Sign In</Link>
             </Button>
           </CardContent>
         </Card>
@@ -55,135 +92,62 @@ export default function SessionsPage() {
     );
   }
 
-  if (showCreateForm) {
-    // Check if user is instructor before showing create form
-    if (user.role !== 'INSTRUCTOR') {
-      return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Access Restricted</CardTitle>
-              <CardDescription>
-                Only instructors can create new coding sessions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setShowCreateForm(false)} className="w-full">
-                Back to Sessions
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <CreateSessionForm
-              onSuccess={handleCreateSuccess}
-              onCancel={handleCreateCancel}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground">
-              Coding Sessions
-            </h1>
-            <p className="mt-2 text-muted-foreground">
+    <ClientLayout>
+      <div className="flex-1 p-6 lg:p-8">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Sessions</h1>
+            <p className="text-muted-foreground">
               Manage your collaborative coding sessions
             </p>
           </div>
-
-          {/* Navigation Tabs */}
-          <div className="mb-6">
-            <nav className="flex space-x-8" aria-label="Tabs">
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
-                  activeTab === 'all'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                }`}
-              >
-                All Sessions
-              </button>
-              <button
-                onClick={() => setActiveTab('my-sessions')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
-                  activeTab === 'my-sessions'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                }`}
-              >
-                My Sessions
-              </button>
-              <button
-                onClick={() => setActiveTab('public')}
-                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
-                  activeTab === 'public'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                }`}
-              >
-                Public Sessions
-              </button>
-            </nav>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Active Sessions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">3</div>
-                <p className="text-xs text-muted-foreground">Currently running</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Participants</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">24</div>
-                <p className="text-xs text-muted-foreground">Across all sessions</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">7</div>
-                <p className="text-xs text-muted-foreground">Sessions created</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Session List */}
-          <SessionList
-            filter={activeTab}
-            onCreateSession={handleCreateSession}
-            showCreateButton={user.role === 'INSTRUCTOR'}
-          />
+          {user.role === 'INSTRUCTOR' && (
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Session
+            </Button>
+          )}
         </div>
+
+        {/* Tabs */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'all' | 'my-sessions' | 'public')}
+          className="space-y-6"
+        >
+          <TabsList>
+            <TabsTrigger value="all">All Sessions</TabsTrigger>
+            <TabsTrigger value="my-sessions">My Sessions</TabsTrigger>
+            <TabsTrigger value="public">Public</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={activeTab}>
+            <SessionList
+              filter={activeTab}
+              onCreateSession={() => setShowCreateDialog(true)}
+              showCreateButton={false}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Create Session Dialog */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create New Session</DialogTitle>
+              <DialogDescription>
+                Start a new collaborative coding session for your students.
+              </DialogDescription>
+            </DialogHeader>
+            <CreateSessionForm
+              onSuccess={handleCreateSuccess}
+              onCancel={() => setShowCreateDialog(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
-    </div>
+    </ClientLayout>
   );
 }
