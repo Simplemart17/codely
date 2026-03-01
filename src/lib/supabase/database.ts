@@ -75,7 +75,9 @@ export interface DatabaseSessionInvitation {
   sender_id: string;
   recipient_id: string;
   email: string;
+  role: ParticipantRole;
   status: InvitationStatus;
+  token?: string;
   expires_at?: string;
   created_at: string;
   updated_at: string;
@@ -202,8 +204,12 @@ export class SupabaseDatabase {
       sessionId: dbInvitation.session_id,
       senderId: dbInvitation.sender_id,
       recipientId: dbInvitation.recipient_id,
+      inviterId: dbInvitation.sender_id, // Alias for backward compatibility
+      inviteeId: dbInvitation.recipient_id,
       email: dbInvitation.email,
+      role: dbInvitation.role,
       status: dbInvitation.status,
+      token: dbInvitation.token || `${dbInvitation.id}_${dbInvitation.session_id}`,
       expiresAt: dbInvitation.expires_at ? new Date(dbInvitation.expires_at) : undefined,
       createdAt: new Date(dbInvitation.created_at),
       updatedAt: new Date(dbInvitation.updated_at),

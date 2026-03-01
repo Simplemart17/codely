@@ -76,8 +76,12 @@ export interface SessionInvitation {
   sessionId: string;
   senderId: string;
   recipientId: string;
+  inviterId: string; // Alias for senderId for backward compatibility
+  inviteeId?: string; // Optional recipient user ID
   email: string;
+  role: ParticipantRole; // Role for the invited participant
   status: InvitationStatus;
+  token: string; // Invitation token for joining
   expiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
