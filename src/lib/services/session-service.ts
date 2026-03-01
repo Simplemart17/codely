@@ -117,7 +117,7 @@ export class SessionService {
       
       let query = supabase.from('sessions').select(`
         *,
-        session_participants!inner (
+        session_participants!left (
           *,
           users (
             id,
@@ -134,8 +134,14 @@ export class SessionService {
           if (userRole === 'INSTRUCTOR') {
             query = query.eq('instructor_id', userId);
           } else {
-            // For learners, show sessions they participate in
-            query = query.eq('session_participants.user_id', userId);
+            // For learners, find session IDs they participate in first
+            const { data: myParts } = await supabase
+              .from('session_participants')
+              .select('session_id')
+              .eq('user_id', userId);
+            const mySessionIds = myParts?.map(p => p.session_id) ?? [];
+            if (mySessionIds.length === 0) return [];
+            query = query.in('id', mySessionIds);
           }
           break;
         case 'public':
@@ -143,8 +149,20 @@ export class SessionService {
           break;
         case 'all':
         default:
-          // Show all sessions user has access to
-          query = query.or(`instructor_id.eq.${userId},is_public.eq.true,session_participants.user_id.eq.${userId}`);
+          // Get session IDs the user participates in
+          const { data: parts } = await supabase
+            .from('session_participants')
+            .select('session_id')
+            .eq('user_id', userId);
+          const participatingIds = parts?.map(p => p.session_id) ?? [];
+
+          // Sessions the user owns OR are public OR user participates in
+          const allIds = new Set(participatingIds);
+          if (allIds.size > 0) {
+            query = query.or(`instructor_id.eq.${userId},is_public.eq.true,id.in.(${[...allIds].join(',')})`);
+          } else {
+            query = query.or(`instructor_id.eq.${userId},is_public.eq.true`);
+          }
           break;
       }
 
@@ -154,32 +172,15 @@ export class SessionService {
         SupabaseDatabase.handleError(error);
       }
 
-      // Transform sessions and group participants
-      const sessionMap = new Map<string, Session>();
-      
-      sessions?.forEach(sessionData => {
-        const sessionId = sessionData.id;
-        
-        if (!sessionMap.has(sessionId)) {
-          sessionMap.set(sessionId, SupabaseDatabase.transformSession(sessionData as DatabaseSession, []));
-        }
-        
-        const session = sessionMap.get(sessionId)!;
-        
-        // Add participants if they exist
-        if (sessionData.session_participants) {
-          const participant = SupabaseDatabase.transformSessionParticipant(
-            sessionData.session_participants as DatabaseSessionParticipant
-          );
-          
-          // Avoid duplicates
-          if (!session.participants.some(p => p.id === participant.id)) {
-            session.participants.push(participant);
-          }
-        }
+      // Transform sessions and attach participants
+      return (sessions ?? []).map(sessionData => {
+        const participants = Array.isArray(sessionData.session_participants)
+          ? sessionData.session_participants.map((p: DatabaseSessionParticipant) =>
+              SupabaseDatabase.transformSessionParticipant(p)
+            )
+          : [];
+        return SupabaseDatabase.transformSession(sessionData as DatabaseSession, participants);
       });
-
-      return Array.from(sessionMap.values());
     } catch (error) {
       console.error('Error getting sessions for user:', error);
       throw new Error('Failed to get sessions');
