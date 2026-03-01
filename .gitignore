@@ -42,3 +42,9 @@ next-env.d.ts
 
 
 .history
+test-results*
+playwright-report
+src/__tests__*
+src/components/sessions/__tests__*
+src/components/sessions/session-snapshots.tsx
+.playwright-mcp
