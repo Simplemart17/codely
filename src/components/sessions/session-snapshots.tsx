@@ -88,7 +88,14 @@ export function SessionSnapshots({
 
   const handleDeleteSnapshot = async (snapshotId: string) => {
     try {
-      // TODO: Replace with actual API call
+      const response = await fetch(`/api/sessions/${sessionId}/snapshots/${snapshotId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete snapshot');
+      }
+
       setSnapshots(prev => prev.filter(snap => snap.id !== snapshotId));
     } catch (error) {
       console.error('Failed to delete snapshot:', error);
