@@ -62,6 +62,8 @@ export function SessionRecording({
   }, [sessionId]);
 
   useEffect(() => {
+    // Data fetching in effect is a standard React pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRecordings();
   }, [fetchRecordings]);
 

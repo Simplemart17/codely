@@ -2,25 +2,32 @@
 
 import { useEffect } from 'react';
 import { useUserStore } from '@/stores/user-store';
-import { Navigation } from './navigation';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from './app-sidebar';
 
 interface ClientLayoutProps {
   children: React.ReactNode;
   showNavigation?: boolean;
 }
 
-export function ClientLayout({ children, showNavigation = true }: ClientLayoutProps) {
-  const { loadUser } = useUserStore();
+export function ClientLayout({
+  children,
+  showNavigation = true,
+}: ClientLayoutProps) {
+  const { loadUser, isAuthenticated } = useUserStore();
 
   useEffect(() => {
-    // Load user data when the component mounts
     loadUser();
   }, [loadUser]);
 
+  if (!showNavigation || !isAuthenticated) {
+    return <>{children}</>;
+  }
+
   return (
-    <>
-      {showNavigation && <Navigation />}
-      {children}
-    </>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>{children}</SidebarInset>
+    </SidebarProvider>
   );
 }

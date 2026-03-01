@@ -4,9 +4,24 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Eye, EyeOff, Code2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import type { UserRole } from '@/types';
 
 export default function SignupPage() {
@@ -15,62 +30,45 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('LEARNER');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
 
     try {
-      // Sign up with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            name,
-            role,
-          },
+          data: { name, role },
         },
       });
 
       if (data.user) {
-        // If signup successful and user is confirmed, create database record
         if (data.user.email_confirmed_at) {
           try {
-            const response = await fetch('/api/users', {
+            await fetch('/api/users', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                name,
-                role,
-              }),
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, role }),
             });
-
-            if (!response.ok) {
-              console.error('Failed to create user in database');
-            }
           } catch (dbError) {
             console.error('Error creating user in database:', dbError);
           }
-
-          setMessage('Registration successful! Please login.');
+          toast.success('Registration successful! Please login.');
         } else {
-          // User needs to confirm email
-          setMessage('Check your email for the confirmation link!');
+          toast.success('Check your email for the confirmation link!');
         }
       }
 
       if (error) {
-        setMessage(error.message);
+        toast.error(error.message);
       }
     } catch {
-      setMessage('An unexpected error occurred');
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -87,123 +85,134 @@ export default function SignupPage() {
       });
 
       if (error) {
-        setMessage(error.message);
+        toast.error(error.message);
         setLoading(false);
       }
     } catch {
-      setMessage('An unexpected error occurred');
+      toast.error('An unexpected error occurred');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      {/* Background pattern */}
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.2)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.2)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
+
+      <Card className="relative z-10 w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Join Codely</CardTitle>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Code2 className="h-6 w-6" />
+          </div>
+          <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            Create your account to start collaborative coding
+            Join Codely to start collaborative coding
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-foreground">
-                Full Name
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
               <Input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="mt-1"
-                placeholder="Enter your full name"
+                placeholder="Your full name"
+                autoComplete="name"
               />
             </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">
-                Email address
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1"
-                placeholder="Enter your email"
+                placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1"
-                placeholder="Create a password"
-                minLength={6}
-              />
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Create a password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-foreground">
-                I am a...
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="role">I am a...</Label>
               <Select
-                id="role"
                 value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className="mt-1"
+                onValueChange={(value) => setRole(value as UserRole)}
               >
-                <option value="LEARNER">Learner</option>
-                <option value="INSTRUCTOR">Instructor</option>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LEARNER">Learner</SelectItem>
+                  <SelectItem value="INSTRUCTOR">Instructor</SelectItem>
+                </SelectContent>
               </Select>
             </div>
-            {message && (
-              <div className={`text-sm ${message.includes('email') ? 'text-green-600' : 'text-red-600'}`}>
-                {message}
-              </div>
-            )}
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-background text-muted-foreground">Or continue with</span>
-              </div>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
             </div>
-
-            <div className="mt-6">
-              <Button
-                onClick={handleGoogleSignup}
-                disabled={loading}
-                variant="outline"
-                className="w-full"
-              >
-                Sign up with Google
-              </Button>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with
+              </span>
             </div>
           </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link href="/login" className="font-medium text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded">
-                Sign in
-              </Link>
-            </p>
-          </div>
+          <Button
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            variant="outline"
+            className="w-full"
+          >
+            Sign up with Google
+          </Button>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link
+              href="/login"
+              className="font-medium text-primary hover:text-primary/80 underline-offset-4 hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
