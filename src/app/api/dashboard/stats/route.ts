@@ -19,14 +19,14 @@ export async function GET() {
       );
     }
 
-    // Get user from database
-    const user = await UserService.getUserById(authUser.id);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    // Get or create user in database
+    const user = await UserService.upsertUser({
+      id: authUser.id,
+      email: authUser.email!,
+      name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+      role: authUser.user_metadata?.role || 'LEARNER',
+      avatar: authUser.user_metadata?.avatar_url,
+    });
 
     // Get user statistics using Supabase
     const supabaseClient = await SupabaseDatabase.getServerClient();
@@ -60,11 +60,23 @@ export async function GET() {
             .select('id', { count: 'exact', head: true })
             .eq('instructor_id', user.id)
             .eq('status', 'ACTIVE')
-        : supabaseClient
-            .from('sessions')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'ACTIVE')
-            .or(`is_public.eq.true,session_participants.user_id.eq.${user.id}`),
+        : (async () => {
+            const { data: participantSessions } = await supabaseClient
+              .from('session_participants')
+              .select('session_id')
+              .eq('user_id', user.id);
+            const sessionIds = participantSessions?.map(p => p.session_id) ?? [];
+            let query = supabaseClient
+              .from('sessions')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'ACTIVE');
+            if (sessionIds.length > 0) {
+              query = query.or(`is_public.eq.true,id.in.(${sessionIds.join(',')})`);
+            } else {
+              query = query.eq('is_public', true);
+            }
+            return query;
+          })(),
 
       // Total participants across user's sessions (if instructor)
       user.role === 'INSTRUCTOR'
