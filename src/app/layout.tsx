@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -39,6 +40,7 @@ export default function RootLayout({
         >
           <TooltipProvider>
             {children}
+            <Analytics />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>
