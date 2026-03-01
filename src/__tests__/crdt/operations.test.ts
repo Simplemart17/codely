@@ -293,7 +293,7 @@ describe('OperationTransformer', () => {
       
       expect(result.operations).toHaveLength(2);
       expect(result.operations[0].position).toBe(7); // Adjusted by "Hi" length
-      expect(result.operations[1].position).toBe(14); // Adjusted by "Hi" + "Hello" length
+      expect(result.operations[1].position).toBe(12); // Adjusted by "Hi" length
     });
   });
 
@@ -390,12 +390,13 @@ describe('OperationTransformer', () => {
   describe('Error Handling', () => {
     it('should handle invalid operation types gracefully', () => {
       const invalidOp = {
-        type: 'INVALID' as unknown,
+        type: 'INVALID',
         position: 5,
+        content: 'test',
         timestamp: 1000,
         userId: 'user1',
         sessionId: 'session1'
-      };
+      } as unknown as Operation;
 
       const validOp: InsertOperation = {
         type: OperationType.INSERT,

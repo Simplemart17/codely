@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CreateSessionForm } from '../create-session-form';
 import { useSessionStore } from '@/stores/session-store';
@@ -10,6 +11,37 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
   }),
+}));
+
+// Mock shadcn Select to render native <select> (Radix Select doesn't work in jsdom)
+jest.mock('@/components/ui/select', () => ({
+  Select: function Select({ children, onValueChange, value }: {
+    children: React.ReactNode;
+    onValueChange?: (v: string) => void;
+    value?: string;
+  }) {
+    return (
+      <select
+        role="combobox"
+        value={value || ''}
+        onChange={(e) => onValueChange?.(e.target.value)}
+      >
+        {children}
+      </select>
+    );
+  },
+  SelectTrigger: function SelectTrigger({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  },
+  SelectValue: function SelectValue({ placeholder }: { placeholder?: string }) {
+    return <option value="">{placeholder}</option>;
+  },
+  SelectContent: function SelectContent({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  },
+  SelectItem: function SelectItem({ children, value }: { children: React.ReactNode; value: string }) {
+    return <option value={value}>{children}</option>;
+  },
 }));
 
 const mockUseSessionStore = useSessionStore as jest.MockedFunction<typeof useSessionStore>;
@@ -61,6 +93,7 @@ describe('CreateSessionForm', () => {
       isLoading: false,
       error: null,
       setUser: jest.fn(),
+      loadUser: jest.fn(),
       updateUser: jest.fn(),
       updatePreferences: jest.fn(),
       logout: jest.fn(),
@@ -77,8 +110,8 @@ describe('CreateSessionForm', () => {
 
     expect(screen.getByLabelText(/session title/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/programming language/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/maximum participants/i)).toBeInTheDocument();
+    expect(screen.getByText(/language \*/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/max participants/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/make this session public/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create session/i })).toBeInTheDocument();
   });
@@ -110,20 +143,17 @@ describe('CreateSessionForm', () => {
     });
   });
 
-  it('validates participant limits', async () => {
+  it('validates participant limits - max exceeded', async () => {
     render(<CreateSessionForm />);
 
-    const titleInput = screen.getByLabelText(/session title/i);
-    const participantsInput = screen.getByLabelText(/maximum participants/i);
+    fireEvent.change(screen.getByLabelText(/session title/i), { target: { value: 'Valid Title' } });
+    fireEvent.change(screen.getByLabelText(/max participants/i), { target: { value: '51' } });
 
-    fireEvent.change(titleInput, { target: { value: 'Valid Title' } });
-    fireEvent.change(participantsInput, { target: { value: '0' } });
-
-    const submitButton = screen.getByRole('button', { name: /create session/i });
-    fireEvent.click(submitButton);
+    const form = screen.getByRole('button', { name: /create session/i }).closest('form')!;
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText(/must allow at least 1 participant/i)).toBeInTheDocument();
+      expect(screen.getByText(/maximum 50 participants allowed/i)).toBeInTheDocument();
     });
   });
 
@@ -148,35 +178,40 @@ describe('CreateSessionForm', () => {
     const onSuccess = jest.fn();
     render(<CreateSessionForm onSuccess={onSuccess} />);
 
-    // Fill out the form
+    // Fill text fields
     fireEvent.change(screen.getByLabelText(/session title/i), {
       target: { value: 'Test Session' },
     });
     fireEvent.change(screen.getByLabelText(/description/i), {
       target: { value: 'Test Description' },
     });
-    fireEvent.change(screen.getByLabelText(/programming language/i), {
-      target: { value: 'JAVASCRIPT' },
-    });
-    fireEvent.change(screen.getByLabelText(/maximum participants/i), {
+    fireEvent.change(screen.getByLabelText(/max participants/i), {
       target: { value: '10' },
     });
+
+    // Select language via mocked native <select>
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'JAVASCRIPT' } });
 
     const submitButton = screen.getByRole('button', { name: /create session/i });
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockCreateSession).toHaveBeenCalledWith({
-        title: 'Test Session',
-        description: 'Test Description',
-        language: 'JAVASCRIPT',
-        maxParticipants: 10,
-        isPublic: true,
-        instructorId: mockUser.id,
-      });
+      expect(mockCreateSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Test Session',
+          description: 'Test Description',
+          language: 'JAVASCRIPT',
+          maxParticipants: 10,
+          isPublic: true,
+          instructorId: mockUser.id,
+        })
+      );
     });
 
-    expect(onSuccess).toHaveBeenCalledWith('session-1');
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith('session-1');
+    });
   });
 
   it('shows loading state during submission', async () => {

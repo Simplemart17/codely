@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SessionTemplateSelector } from '@/components/sessions/session-template-selector';
 import { SESSION_TEMPLATES } from '@/lib/session-templates';
@@ -16,6 +17,37 @@ jest.mock('@/stores/user-store', () => ({
       role: 'INSTRUCTOR'
     }
   })
+}));
+
+// Mock shadcn Select to render native <select> (Radix Select doesn't work in jsdom)
+jest.mock('@/components/ui/select', () => ({
+  Select: function Select({ children, onValueChange, value }: {
+    children: React.ReactNode;
+    onValueChange?: (v: string) => void;
+    value?: string;
+  }) {
+    return (
+      <select
+        role="combobox"
+        value={value || ''}
+        onChange={(e) => onValueChange?.(e.target.value)}
+      >
+        {children}
+      </select>
+    );
+  },
+  SelectTrigger: function SelectTrigger({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  },
+  SelectValue: function SelectValue({ placeholder }: { placeholder?: string }) {
+    return <option value="">{placeholder}</option>;
+  },
+  SelectContent: function SelectContent({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  },
+  SelectItem: function SelectItem({ children, value }: { children: React.ReactNode; value: string }) {
+    return <option value={value}>{children}</option>;
+  },
 }));
 
 describe('SessionTemplateSelector', () => {
@@ -34,8 +66,8 @@ describe('SessionTemplateSelector', () => {
       />
     );
 
-    expect(screen.getByText('Choose a Session Template')).toBeInTheDocument();
-    expect(screen.getByText('Start with a pre-built template to save time and ensure best practices')).toBeInTheDocument();
+    expect(screen.getByText('Choose a Template')).toBeInTheDocument();
+    expect(screen.getByText('Start with a pre-built template to save time')).toBeInTheDocument();
   });
 
   it('filters templates by category', async () => {
@@ -46,7 +78,8 @@ describe('SessionTemplateSelector', () => {
       />
     );
 
-    const categorySelect = screen.getByDisplayValue('All Categories');
+    const selects = screen.getAllByRole('combobox');
+    const categorySelect = selects[0]; // first select is category
     fireEvent.change(categorySelect, { target: { value: 'FUNDAMENTALS' } });
 
     await waitFor(() => {
@@ -65,7 +98,8 @@ describe('SessionTemplateSelector', () => {
       />
     );
 
-    const difficultySelect = screen.getByDisplayValue('All Levels');
+    const selects = screen.getAllByRole('combobox');
+    const difficultySelect = selects[1]; // second select is difficulty
     fireEvent.change(difficultySelect, { target: { value: 'BEGINNER' } });
 
     await waitFor(() => {
@@ -99,7 +133,7 @@ describe('SessionTemplateSelector', () => {
 
     const firstTemplate = SESSION_TEMPLATES[0];
     const templateCard = screen.getByText(firstTemplate.name);
-    
+
     fireEvent.click(templateCard);
 
     await waitFor(() => {
@@ -115,7 +149,7 @@ describe('SessionTemplateSelector', () => {
       />
     );
 
-    const closeButton = screen.getByText('✕ Close');
+    const closeButton = screen.getByRole('button', { name: /create custom instead/i });
     fireEvent.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalled();
@@ -130,11 +164,11 @@ describe('SessionTemplateSelector', () => {
     );
 
     const firstTemplate = SESSION_TEMPLATES[0];
-    
+
     expect(screen.getByText(firstTemplate.name)).toBeInTheDocument();
     expect(screen.getByText(firstTemplate.description)).toBeInTheDocument();
-    expect(screen.getByText(firstTemplate.difficulty)).toBeInTheDocument();
-    expect(screen.getByText(`${firstTemplate.estimatedDuration} min`)).toBeInTheDocument();
+    expect(screen.getAllByText(firstTemplate.difficulty).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(`${firstTemplate.estimatedDuration} min`).length).toBeGreaterThan(0);
   });
 
   it('shows no templates message when filters result in empty list', async () => {
@@ -146,18 +180,14 @@ describe('SessionTemplateSelector', () => {
       />
     );
 
-    // Set filters that would result in no matches
-    const categorySelect = screen.getByDisplayValue('All Categories');
-    fireEvent.change(categorySelect, { target: { value: 'PROJECT_BASED' } });
-
-    const difficultySelect = screen.getByDisplayValue('All Levels');
-    fireEvent.change(difficultySelect, { target: { value: 'ADVANCED' } });
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'PROJECT_BASED' } });
+    fireEvent.change(selects[1], { target: { value: 'ADVANCED' } });
 
     await waitFor(() => {
-      // Check if there are any templates that match these criteria
-      const matchingTemplates = SESSION_TEMPLATES.filter(t => 
-        t.language === 'JAVASCRIPT' && 
-        t.category === 'PROJECT_BASED' && 
+      const matchingTemplates = SESSION_TEMPLATES.filter(t =>
+        t.language === 'JAVASCRIPT' &&
+        t.category === 'PROJECT_BASED' &&
         t.difficulty === 'ADVANCED'
       );
 

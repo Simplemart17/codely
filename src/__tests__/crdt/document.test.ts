@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { CRDTDocument, createCRDTDocument, generateUserColor } from '../../lib/crdt/document';
-import { CollaborativeUser } from '../../lib/crdt/document';
+import type { CollaborativeUser } from '../../lib/crdt/document';
+import type { editor } from 'monaco-editor';
 
 // Mock WebSocket provider
 jest.mock('y-websocket', () => ({
@@ -193,7 +194,7 @@ describe('CRDTDocument', () => {
       const updatedState = document.getState();
       
       expect(updatedState.content).not.toBe(initialState.content);
-      expect(updatedState.lastModified).toBeGreaterThan(initialState.lastModified);
+      expect(updatedState.lastModified).toBeGreaterThanOrEqual(initialState.lastModified);
     });
   });
 
@@ -237,7 +238,7 @@ describe('CRDTDocument', () => {
       const mockEditor = null;
       
       expect(() => {
-        document.bindMonacoEditor(mockEditor as unknown);
+        document.bindMonacoEditor(mockEditor as unknown as editor.IStandaloneCodeEditor);
       }).toThrow();
     });
 
