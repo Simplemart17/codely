@@ -24,6 +24,7 @@ export default async function DashboardPage() {
   }
 
   const displayName = user.user_metadata?.name || user.email;
+  const userRole = user.user_metadata?.role;
 
   return (
     <ClientLayout>
@@ -47,22 +48,24 @@ export default async function DashboardPage() {
         <div className="mb-8">
           <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Plus className="h-5 w-5 text-primary" />
-                </div>
-                <CardTitle className="text-base">Create Session</CardTitle>
-                <CardDescription>
-                  Start a new collaborative coding session
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild className="w-full">
-                  <Link href="/sessions?create=true">New Session</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            {userRole === 'INSTRUCTOR' && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Plus className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">Create Session</CardTitle>
+                  <CardDescription>
+                    Start a new collaborative coding session
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild className="w-full">
+                    <Link href="/sessions?create=true">New Session</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-3">

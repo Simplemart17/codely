@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,15 +25,25 @@ export default function SessionCodePage() {
   const router = useRouter();
   const sessionId = params.id as string;
 
-  const { currentSession, participants, fetchSession, isFetching, error } =
+  const { currentSession, participants, fetchSession, isFetching, error, clearError } =
     useSessionStore();
   const { user } = useUserStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const hasShownError = useRef<string | null>(null);
 
   useEffect(() => {
     if (sessionId) fetchSession(sessionId);
   }, [sessionId, fetchSession]);
+
+  // Show non-fatal errors as toasts instead of nuking the page
+  useEffect(() => {
+    if (error && currentSession && hasShownError.current !== error) {
+      hasShownError.current = error;
+      toast.error(error);
+      clearError();
+    }
+  }, [error, currentSession, clearError]);
 
   const handleCodeChange = (code: string) => {
     console.log('Code changed:', code.length, 'characters');
@@ -60,7 +71,7 @@ export default function SessionCodePage() {
     );
   }
 
-  if (error || !currentSession) {
+  if (!currentSession) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="w-full max-w-md">
@@ -198,6 +209,7 @@ export default function SessionCodePage() {
           initialCode={currentSession.code}
           initialLanguage={currentSession.language}
           readOnly={false}
+          isInstructor={isInstructor}
           onCodeChange={handleCodeChange}
           onLanguageChange={handleLanguageChange}
         />

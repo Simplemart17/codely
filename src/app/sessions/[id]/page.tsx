@@ -18,30 +18,12 @@ import { SessionMetadata } from '@/components/sessions/session-metadata';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { ClientLayout } from '@/components/layout/client-layout';
-import { formatDate } from '@/lib/utils';
 import {
   ArrowLeft,
   Code2,
-  Clock,
-  Users,
-  Globe,
-  Lock,
   Play,
   LogOut,
 } from 'lucide-react';
-
-function getLanguageLabel(language: string): string {
-  switch (language) {
-    case 'JAVASCRIPT':
-      return 'JavaScript';
-    case 'PYTHON':
-      return 'Python';
-    case 'CSHARP':
-      return 'C#';
-    default:
-      return language;
-  }
-}
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -214,62 +196,6 @@ export default function SessionDetailPage() {
           {/* Main Content */}
           <div className="space-y-6 lg:col-span-2">
             <SessionMetadata session={currentSession} />
-
-            {/* Details Grid */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Session Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Language</p>
-                      <p className="font-medium">
-                        {getLanguageLabel(currentSession.language)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Participants
-                      </p>
-                      <p className="font-medium">
-                        {activeParticipants.length} /{' '}
-                        {currentSession.maxParticipants}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentSession.isPublic ? (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Visibility
-                      </p>
-                      <p className="font-medium">
-                        {currentSession.isPublic ? 'Public' : 'Private'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                      <p className="font-medium">
-                        {formatDate(currentSession.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Code Preview */}
             <Card>

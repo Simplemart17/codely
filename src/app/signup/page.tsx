@@ -15,6 +15,7 @@ import {
 import { Eye, EyeOff, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { createUser } from '@/lib/actions/user-actions';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -41,11 +42,10 @@ export default function SignupPage() {
       if (data.user) {
         if (data.user.email_confirmed_at) {
           try {
-            await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, role: 'LEARNER' }),
-            });
+            const result = await createUser({ name, role: 'LEARNER' });
+            if (!result.success) {
+              console.error('Error creating user in database:', result.error);
+            }
           } catch (dbError) {
             console.error('Error creating user in database:', dbError);
           }

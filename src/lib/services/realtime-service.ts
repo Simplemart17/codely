@@ -292,6 +292,7 @@ export class RealtimeService {
    * Update participant status in database
    */
   private async updateParticipantStatus(sessionId: string, userId: string, isActive: boolean): Promise<void> {
+    if (!sessionId || !userId) return;
     try {
       const updateData: Record<string, unknown> = {
         is_active: isActive,

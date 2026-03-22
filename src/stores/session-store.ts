@@ -223,7 +223,7 @@ export const useSessionStore = create<SessionState>()(
       },
 
       updateSession: async (sessionId, updates) => {
-        set({ isLoading: true, error: null });
+        set({ error: null });
         try {
           const result = await updateSessionAction({
             sessionId,
@@ -251,7 +251,6 @@ export const useSessionStore = create<SessionState>()(
             userSessions: state.userSessions.map((session) =>
               session.id === sessionId ? updated : session
             ),
-            isLoading: false,
           }));
         } catch (error) {
           set({
@@ -259,7 +258,6 @@ export const useSessionStore = create<SessionState>()(
               error instanceof Error
                 ? error.message
                 : 'Failed to update session',
-            isLoading: false,
           });
           throw error;
         }

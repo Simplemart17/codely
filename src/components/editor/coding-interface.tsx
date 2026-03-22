@@ -27,6 +27,7 @@ interface CodingInterfaceProps {
   initialLanguage?: Language;
   readOnly?: boolean;
   showToolbar?: boolean;
+  isInstructor?: boolean;
   onCodeChange?: (code: string) => void;
   onLanguageChange?: (language: Language) => void;
 }
@@ -37,6 +38,7 @@ export function CodingInterface({
   initialLanguage = 'JAVASCRIPT',
   readOnly = false,
   showToolbar = true,
+  isInstructor = false,
   onCodeChange,
   onLanguageChange,
 }: CodingInterfaceProps) {
@@ -111,8 +113,8 @@ export function CodingInterface({
       setLocalCode(newCode);
       onCodeChange?.(newCode);
 
-      // Auto-save code changes to session (debounced)
-      if (sessionId) {
+      // Auto-save code changes to session (debounced, instructor only)
+      if (sessionId && isInstructor) {
         if (window.autoSaveTimeout) {
           clearTimeout(window.autoSaveTimeout);
         }
@@ -126,12 +128,12 @@ export function CodingInterface({
         }, 1000);
       }
     },
-    [onCodeChange, sessionId, updateSession]
+    [onCodeChange, sessionId, updateSession, isInstructor]
   );
 
-  // Auto-save collaborative content periodically
+  // Auto-save collaborative content periodically (instructor only)
   useEffect(() => {
-    if (!isCollaborative || !sessionId) return;
+    if (!isCollaborative || !sessionId || !isInstructor) return;
 
     const autoSaveInterval = setInterval(() => {
       const content = collaboration.getContent();
@@ -146,7 +148,7 @@ export function CodingInterface({
     }, 5000); // Save every 5 seconds
 
     return () => clearInterval(autoSaveInterval);
-  }, [isCollaborative, sessionId, collaboration, updateSession]);
+  }, [isCollaborative, sessionId, collaboration, updateSession, isInstructor]);
 
   const handleLanguageChange = useCallback(
     (newLanguage: Language) => {
@@ -158,8 +160,8 @@ export function CodingInterface({
         realtimeServiceRef.current.sendLanguageChange(newLanguage);
       }
 
-      // Persist to session
-      if (sessionId) {
+      // Persist to session (instructor only)
+      if (sessionId && isInstructor) {
         updateSession(sessionId, {
           language: newLanguage,
           updatedAt: new Date(),
@@ -168,7 +170,7 @@ export function CodingInterface({
         });
       }
     },
-    [onLanguageChange, sessionId, updateSession]
+    [onLanguageChange, sessionId, updateSession, isInstructor]
   );
 
   const handleRun = useCallback(async () => {
@@ -224,19 +226,31 @@ export function CodingInterface({
     ]);
 
     try {
-      if (sessionId) {
+      if (sessionId && isInstructor) {
         const code = getCurrentCode();
         await updateSession(sessionId, {
           code,
           language,
           updatedAt: new Date(),
         });
+        setOutput((prev) => [
+          ...prev,
+          createOutputLine('info', 'Code saved successfully'),
+        ]);
+      } else if (sessionId) {
+        setOutput((prev) => [
+          ...prev,
+          createOutputLine(
+            'info',
+            'Code is synced via collaboration. Only the instructor can save to session.'
+          ),
+        ]);
+      } else {
+        setOutput((prev) => [
+          ...prev,
+          createOutputLine('info', 'Code saved locally'),
+        ]);
       }
-
-      setOutput((prev) => [
-        ...prev,
-        createOutputLine('info', 'Code saved successfully'),
-      ]);
     } catch {
       setOutput((prev) => [
         ...prev,
@@ -245,7 +259,7 @@ export function CodingInterface({
     } finally {
       setIsSaving(false);
     }
-  }, [getCurrentCode, language, sessionId, updateSession, isSaving]);
+  }, [getCurrentCode, language, sessionId, updateSession, isSaving, isInstructor]);
 
   const handleFormat = useCallback(async () => {
     if (!editorRef.current) return;
