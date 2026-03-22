@@ -43,6 +43,11 @@ export interface UserLeftEvent {
   userId: string;
 }
 
+export interface SessionStatusChangeEvent {
+  sessionId: string;
+  status: string;
+}
+
 /**
  * Realtime service using Supabase Realtime for collaborative features
  * Replaces Socket.io with Supabase Realtime channels
@@ -128,8 +133,13 @@ export class RealtimeService {
           filter: `id=eq.${sessionId}`,
         },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log('Session updated:', payload);
-          // Handle session updates (e.g., code changes from database)
+          const newRecord = payload.new as Record<string, unknown> | undefined;
+          if (newRecord?.status) {
+            this.triggerSessionStatusChange({
+              sessionId,
+              status: newRecord.status as string,
+            });
+          }
         }
       );
 
@@ -346,6 +356,7 @@ export class RealtimeService {
   private userPresenceCallbacks: ((event: UserPresenceEvent) => void)[] = [];
   private userJoinedCallbacks: ((event: UserJoinedEvent) => void)[] = [];
   private userLeftCallbacks: ((event: UserLeftEvent) => void)[] = [];
+  private sessionStatusChangeCallbacks: ((event: SessionStatusChangeEvent) => void)[] = [];
 
   // Event listener methods
   onCodeChange(callback: (event: CodeChangeEvent) => void): void {
@@ -368,6 +379,10 @@ export class RealtimeService {
     this.userLeftCallbacks.push(callback);
   }
 
+  onSessionStatusChange(callback: (event: SessionStatusChangeEvent) => void): void {
+    this.sessionStatusChangeCallbacks.push(callback);
+  }
+
   // Event trigger methods
   private triggerCodeChange(event: CodeChangeEvent): void {
     this.codeChangeCallbacks.forEach(callback => callback(event));
@@ -387,6 +402,10 @@ export class RealtimeService {
 
   private triggerUserLeft(event: UserLeftEvent): void {
     this.userLeftCallbacks.forEach(callback => callback(event));
+  }
+
+  private triggerSessionStatusChange(event: SessionStatusChangeEvent): void {
+    this.sessionStatusChangeCallbacks.forEach(callback => callback(event));
   }
 
   // Remove event listeners
@@ -442,6 +461,17 @@ export class RealtimeService {
       }
     } else {
       this.userLeftCallbacks = [];
+    }
+  }
+
+  offSessionStatusChange(callback?: (event: SessionStatusChangeEvent) => void): void {
+    if (callback) {
+      const index = this.sessionStatusChangeCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.sessionStatusChangeCallbacks.splice(index, 1);
+      }
+    } else {
+      this.sessionStatusChangeCallbacks = [];
     }
   }
 

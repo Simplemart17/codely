@@ -145,6 +145,18 @@ export async function joinSession(
     const user = await getAuthenticatedUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    // Verify session exists and is active
+    const session = await SessionService.getSessionById(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (session.status !== 'ACTIVE') {
+      return {
+        success: false,
+        error: 'This session is no longer active and cannot be joined',
+      };
+    }
+
     const participant = await SessionService.joinSession(sessionId, user.id);
     return { success: true, data: participant };
   } catch {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,18 +18,26 @@ import { CodingInterface } from '@/components/editor/coding-interface';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
-import { ArrowLeft, Maximize2, Minimize2, Users } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2, Square, Users } from 'lucide-react';
 
 export default function SessionCodePage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.id as string;
 
-  const { currentSession, participants, fetchSession, isFetching, error, clearError } =
-    useSessionStore();
+  const {
+    currentSession,
+    participants,
+    fetchSession,
+    updateSession,
+    isFetching,
+    error,
+    clearError,
+  } = useSessionStore();
   const { user } = useUserStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const hasShownError = useRef<string | null>(null);
 
   useEffect(() => {
@@ -56,6 +64,26 @@ export default function SessionCodePage() {
   };
 
   const handleBack = () => router.push(`/sessions/${sessionId}`);
+
+  const handleSessionEnded = useCallback(() => {
+    toast.info('This session has been ended by the instructor.');
+    router.push(`/sessions/${sessionId}`);
+  }, [router, sessionId]);
+
+  const handleEndSession = async () => {
+    if (!sessionId) return;
+    setIsEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'ENDED' });
+      toast.success('Session ended successfully');
+      router.push(`/sessions/${sessionId}`);
+    } catch {
+      toast.error('Failed to end session');
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   const activeParticipants = participants.filter((p) => p.isActive);
 
   if (isFetching) {
@@ -187,6 +215,21 @@ export default function SessionCodePage() {
               </div>
             )}
           </div>
+          {isInstructor && (
+            <>
+              <Separator orientation="vertical" className="h-5" />
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleEndSession}
+                disabled={isEnding}
+                className="h-7 text-xs"
+              >
+                <Square className="mr-1 h-3 w-3" />
+                {isEnding ? 'Ending...' : 'End Session'}
+              </Button>
+            </>
+          )}
           <Separator orientation="vertical" className="h-5" />
           <Button
             size="icon"
@@ -212,6 +255,7 @@ export default function SessionCodePage() {
           isInstructor={isInstructor}
           onCodeChange={handleCodeChange}
           onLanguageChange={handleLanguageChange}
+          onSessionEnded={handleSessionEnded}
         />
       </div>
     </div>

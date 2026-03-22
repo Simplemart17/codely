@@ -23,7 +23,9 @@ import {
   Code2,
   Play,
   LogOut,
+  Square,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -49,12 +51,14 @@ export default function SessionDetailPage() {
     fetchSession,
     joinSession,
     leaveSession,
+    updateSession,
     isFetching,
     error,
   } = useSessionStore();
   const { user } = useUserStore();
 
   const [isJoining, setIsJoining] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -81,6 +85,20 @@ export default function SessionDetailPage() {
       await leaveSession(sessionId);
     } catch (err) {
       console.error('Failed to leave session:', err);
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!user || !sessionId) return;
+    setIsEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'ENDED' });
+      toast.success('Session ended successfully');
+    } catch (err) {
+      console.error('Failed to end session:', err);
+      toast.error('Failed to end session');
+    } finally {
+      setIsEnding(false);
     }
   };
 
@@ -147,12 +165,25 @@ export default function SessionDetailPage() {
           </Button>
           <div className="flex items-center gap-2">
             {isInstructor ? (
-              <Button
-                onClick={() => router.push(`/sessions/${sessionId}/code`)}
-              >
-                <Code2 className="mr-2 h-4 w-4" />
-                Open Editor
-              </Button>
+              <>
+                <Button
+                  onClick={() => router.push(`/sessions/${sessionId}/code`)}
+                  disabled={currentSession.status !== 'ACTIVE'}
+                >
+                  <Code2 className="mr-2 h-4 w-4" />
+                  Open Editor
+                </Button>
+                {currentSession.status === 'ACTIVE' && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleEndSession}
+                    disabled={isEnding}
+                  >
+                    <Square className="mr-2 h-4 w-4" />
+                    {isEnding ? 'Ending...' : 'End Session'}
+                  </Button>
+                )}
+              </>
             ) : isParticipant ? (
               <>
                 <Button

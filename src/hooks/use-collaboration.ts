@@ -25,6 +25,8 @@ interface CollaborationState {
 }
 
 interface UseCollaborationReturn extends CollaborationState {
+  /** Get the underlying CRDTDocument instance (for remote cursor hooks, etc.) */
+  getDocument: () => CRDTDocument | null;
   bindEditor: (editor: editor.IStandaloneCodeEditor) => void;
   disconnect: () => void;
   getContent: () => string;
@@ -208,8 +210,13 @@ export function useCollaboration({
     }
   }, []);
 
+  const getDocument = useCallback((): CRDTDocument | null => {
+    return documentRef.current;
+  }, []);
+
   return {
     ...state,
+    getDocument,
     bindEditor,
     disconnect,
     getContent,

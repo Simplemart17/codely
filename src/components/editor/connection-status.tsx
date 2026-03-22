@@ -35,6 +35,11 @@ export function ConnectionStatus({
 }: ConnectionStatusProps) {
   const { dotClass, label } = STATUS_CONFIG[status];
 
+  // Deduplicate users by id (Yjs awareness can report the same user multiple times)
+  const uniqueUsers = connectedUsers.filter(
+    (user, index, self) => self.findIndex((u) => u.id === user.id) === index
+  );
+
   return (
     <div className="flex items-center gap-3 text-sm">
       {/* Connection status */}
@@ -52,16 +57,16 @@ export function ConnectionStatus({
       )}
 
       {/* Connected user count */}
-      {connectedUsers.length > 0 && (
+      {uniqueUsers.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {connectedUsers.length}{' '}
-            {connectedUsers.length === 1 ? 'user' : 'users'}
+            {uniqueUsers.length}{' '}
+            {uniqueUsers.length === 1 ? 'user' : 'users'}
           </span>
 
           {/* User avatars */}
           <div className="flex -space-x-1.5">
-            {connectedUsers.slice(0, 5).map((user) => (
+            {uniqueUsers.slice(0, 5).map((user) => (
               <div
                 key={user.id}
                 className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background text-xs font-semibold text-white"
@@ -71,9 +76,9 @@ export function ConnectionStatus({
                 {user.name.charAt(0).toUpperCase()}
               </div>
             ))}
-            {connectedUsers.length > 5 && (
+            {uniqueUsers.length > 5 && (
               <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold text-muted-foreground">
-                +{connectedUsers.length - 5}
+                +{uniqueUsers.length - 5}
               </div>
             )}
           </div>

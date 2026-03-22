@@ -19,7 +19,8 @@
     "analyze": "ANALYZE=true npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "yjs-server": "node server/yjs-server.mjs"
+    "yjs-server": "node server/yjs-server.mjs",
+    "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\""
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -58,6 +59,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "^16.1.6",
     "husky": "^9.1.7",

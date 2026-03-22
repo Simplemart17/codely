@@ -234,6 +234,14 @@ export class CRDTDocument {
   }
 
   /**
+   * Get the awareness instance (for remote cursor rendering)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getAwareness(): any {
+    return this.yawareness;
+  }
+
+  /**
    * Check if document is synchronized
    */
   isSynced(): boolean {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import * as monaco from 'monaco-editor';
+import type { editor as MonacoEditorType } from 'monaco-editor';
 import { MonacoEditor } from './monaco-editor';
 import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
@@ -10,8 +10,12 @@ import { codeExecutionService } from '@/lib/code-execution';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { useCollaboration } from '@/hooks/use-collaboration';
+import { useRemoteCursors } from '@/hooks/use-remote-cursors';
 import { RealtimeService } from '@/lib/services/realtime-service';
-import type { LanguageChangeEvent } from '@/lib/services/realtime-service';
+import type {
+  LanguageChangeEvent,
+  SessionStatusChangeEvent,
+} from '@/lib/services/realtime-service';
 import type { Language } from '@/types';
 
 // Extend Window interface for auto-save timeout
@@ -30,6 +34,7 @@ interface CodingInterfaceProps {
   isInstructor?: boolean;
   onCodeChange?: (code: string) => void;
   onLanguageChange?: (language: Language) => void;
+  onSessionEnded?: () => void;
 }
 
 export function CodingInterface({
@@ -41,6 +46,7 @@ export function CodingInterface({
   isInstructor = false,
   onCodeChange,
   onLanguageChange,
+  onSessionEnded,
 }: CodingInterfaceProps) {
   const { user } = useUserStore();
   const { updateSession } = useSessionStore();
@@ -57,7 +63,7 @@ export function CodingInterface({
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<MonacoEditorType.IStandaloneCodeEditor | null>(null);
   const realtimeServiceRef = useRef<RealtimeService | null>(null);
 
   // Whether this is a collaborative session (has sessionId and user)
@@ -72,6 +78,9 @@ export function CodingInterface({
     initialContent: initialCode,
     enabled: isCollaborative,
   });
+
+  // Inject dynamic CSS for remote cursor labels and colors
+  useRemoteCursors(collaboration.getDocument, isCollaborative);
 
   // Non-collaborative code state (used when no session)
   const [localCode, setLocalCode] = useState(initialCode);
@@ -89,7 +98,14 @@ export function CodingInterface({
       }
     };
 
+    const handleSessionStatusChange = (event: SessionStatusChangeEvent) => {
+      if (event.status === 'ENDED') {
+        onSessionEnded?.();
+      }
+    };
+
     realtimeService.onLanguageChange(handleIncomingLanguageChange);
+    realtimeService.onSessionStatusChange(handleSessionStatusChange);
     realtimeService.joinSession(sessionId, user.id, user.name);
 
     return () => {
@@ -97,7 +113,7 @@ export function CodingInterface({
       realtimeService.cleanup();
       realtimeServiceRef.current = null;
     };
-  }, [sessionId, user]);
+  }, [sessionId, user, onSessionEnded]);
 
   // Get current code content
   const getCurrentCode = useCallback((): string => {
@@ -301,13 +317,16 @@ export function CodingInterface({
   }, []);
 
   const handleEditorMount = useCallback(
-    (editor: monaco.editor.IStandaloneCodeEditor) => {
+    async (editor: MonacoEditorType.IStandaloneCodeEditor) => {
       editorRef.current = editor;
 
       // Bind editor to CRDT document for collaborative editing
       if (isCollaborative) {
         collaboration.bindEditor(editor);
       }
+
+      // Dynamically import monaco for key constants (avoid SSR crash)
+      const monaco = await import('monaco-editor');
 
       // Add keyboard shortcuts
       editor.addCommand(
@@ -325,7 +344,9 @@ export function CodingInterface({
       );
 
       editor.addCommand(
-        monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
+        monaco.KeyMod.Shift |
+          monaco.KeyMod.Alt |
+          monaco.KeyCode.KeyF,
         () => {
           handleFormat();
         }
