@@ -84,6 +84,18 @@ export async function updateSession(
 
     const { sessionId, ...updates } = parsed.data;
 
+    // Verify user is the session instructor
+    const existing = await SessionService.getSessionById(sessionId);
+    if (!existing) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (existing.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'Only the session instructor can update this session',
+      };
+    }
+
     const session = await SessionService.updateSession(sessionId, {
       title: updates.title,
       description: updates.description,
@@ -106,6 +118,18 @@ export async function deleteSession(
   try {
     const user = await getAuthenticatedUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+
+    // Verify user is the session instructor
+    const existing = await SessionService.getSessionById(sessionId);
+    if (!existing) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (existing.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'Only the session instructor can delete this session',
+      };
+    }
 
     await SessionService.deleteSession(sessionId);
     return { success: true, data: undefined };

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
               id: authUser.id,
               email: authUser.email!,
               name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
-              role: (authUser.user_metadata?.role?.toUpperCase() || 'LEARNER') as UserRole,
+              role: 'LEARNER' as UserRole,
               avatar: authUser.user_metadata?.avatar_url,
             };
 

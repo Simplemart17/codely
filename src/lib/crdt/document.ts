@@ -76,7 +76,7 @@ export class CRDTDocument {
   /**
    * Connect to WebSocket provider for real-time synchronization
    */
-  connect(websocketUrl: string): void {
+  connect(websocketUrl: string, initialContent?: string): void {
     try {
       // Create WebSocket provider
       this.provider = new WebsocketProvider(
@@ -87,7 +87,7 @@ export class CRDTDocument {
 
       // Set up awareness
       this.yawareness = this.provider.awareness;
-      
+
       // Set local user state
       this.yawareness.setLocalStateField('user', {
         id: this.currentUser.id,
@@ -98,10 +98,19 @@ export class CRDTDocument {
 
       // Listen for awareness changes
       this.yawareness.on('change', this.handleAwarenessChange.bind(this));
-      
+
       // Listen for provider events
       this.provider.on('status', this.handleConnectionStatus.bind(this));
-      this.provider.on('sync', this.handleSync.bind(this));
+
+      // Handle initial sync — set content if document is empty after first sync
+      this.provider.on('sync', (isSynced: boolean) => {
+        this.handleSync(isSynced);
+
+        if (isSynced && initialContent && this.ytext.length === 0) {
+          // Document is empty on the server, set initial content
+          this.setContent(initialContent);
+        }
+      });
 
       this.emit('connected', { sessionId: this.sessionId });
     } catch (error) {

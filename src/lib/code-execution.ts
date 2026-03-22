@@ -11,10 +11,21 @@ export interface ExecutionResult {
 export interface ExecutionOptions {
   timeout?: number; // in milliseconds
   memoryLimit?: number; // in MB
+  stdin?: string;
 }
 
-// Mock code execution service
-// In production, this would connect to a secure sandboxed execution environment
+const LANGUAGE_MAP: Record<Language, string> = {
+  JAVASCRIPT: 'javascript',
+  PYTHON: 'python',
+  CSHARP: 'csharp',
+};
+
+/**
+ * Code Execution Service
+ *
+ * Sends code to the server-side `/api/execute` route which proxies
+ * to the JDoodle code execution API.
+ */
 export class CodeExecutionService {
   private static instance: CodeExecutionService;
 
@@ -28,249 +39,72 @@ export class CodeExecutionService {
   async executeCode(
     code: string,
     language: Language,
-    _options: ExecutionOptions = {}
+    options: ExecutionOptions = {}
   ): Promise<ExecutionResult> {
     const startTime = Date.now();
-    // const timeout = options.timeout || 30000; // 30 seconds default (for future use)
 
-    try {
-      // Simulate execution delay
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-      // Mock execution based on language
-      const result = await this.mockExecution(code, language);
-      const executionTime = Date.now() - startTime;
-
-      return {
-        ...result,
-        executionTime,
-      };
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-      return {
-        success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown execution error',
-        executionTime,
-      };
-    }
-  }
-
-  private async mockExecution(code: string, language: Language): Promise<Omit<ExecutionResult, 'executionTime'>> {
-    // Basic code analysis for mock results
-    const codeLines = code.trim().split('\n').filter(line => line.trim());
-    
-    if (codeLines.length === 0) {
+    // Quick validation
+    const trimmed = code.trim();
+    if (!trimmed) {
       return {
         success: false,
         output: '',
         error: 'No code to execute',
+        executionTime: Date.now() - startTime,
       };
     }
 
-    // Check for common patterns and generate appropriate output
-    switch (language) {
-      case 'JAVASCRIPT':
-        return this.mockJavaScriptExecution(code);
-      case 'PYTHON':
-        return this.mockPythonExecution(code);
-      case 'CSHARP':
-        return this.mockCSharpExecution(code);
-      default:
-        return {
-          success: false,
-          output: '',
-          error: `Unsupported language: ${language}`,
-        };
-    }
-  }
-
-  private mockJavaScriptExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
-    try {
-      // Check for common errors first
-      if (code.includes('undefinedVariable')) {
-        return {
-          success: false,
-          output: '',
-          error: 'ReferenceError: undefinedVariable is not defined',
-        };
-      }
-
-      if (code.includes('console.log')) {
-        const matches = code.match(/console\.log\((.*?)\)/g);
-        if (matches) {
-          const outputs = matches.map(match => {
-            const content = match.replace(/console\.log\((.*?)\)/, '$1');
-            // Simple evaluation for demo purposes
-            if (content.includes('"') || content.includes("'")) {
-              return content.replace(/['"]/g, '');
-            }
-            if (content.includes('greet')) {
-              return 'Hello, World!';
-            }
-            return content;
-          });
-
-          return {
-            success: true,
-            output: outputs.join('\n'),
-          };
-        }
-      }
-
-      if (code.includes('function')) {
-        return {
-          success: true,
-          output: 'Function defined successfully',
-        };
-      }
-
-      return {
-        success: true,
-        output: 'Code executed successfully',
-      };
-    } catch (error) {
+    const langId = LANGUAGE_MAP[language];
+    if (!langId) {
       return {
         success: false,
         output: '',
-        error: `SyntaxError: ${error instanceof Error ? error.message : 'Invalid syntax'}`,
+        error: `Unsupported language: ${language}`,
+        executionTime: Date.now() - startTime,
       };
     }
-  }
 
-  private mockPythonExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
-    try {
-      // Check for syntax errors first
-      const lines = code.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trimEnd();
-        if (line.includes('def ') || line.includes('if ') || line.includes('for ') || line.includes('while ')) {
-          if (!line.endsWith(':')) {
-            return {
-              success: false,
-              output: '',
-              error: `SyntaxError: invalid syntax (line ${i + 1})`,
-            };
-          }
-        }
-      }
+    const response = await fetch('/api/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: langId,
+        code: trimmed,
+        stdin: options.stdin || '',
+        timeout: options.timeout || 10000,
+        memoryLimit: options.memoryLimit,
+      }),
+    });
 
-      // Check for print statements
-      if (code.includes('print(')) {
-        const matches = code.match(/print\((.*?)\)/g);
-        if (matches) {
-          const outputs = matches.map(match => {
-            const content = match.replace(/print\((.*?)\)/, '$1');
-            // Simple evaluation for demo purposes
-            if (content.includes('"') || content.includes("'")) {
-              return content.replace(/['"]/g, '');
-            }
-            if (content.includes('greet')) {
-              return 'Hello, World!';
-            }
-            return content;
-          });
+    const data = await response.json();
 
-          return {
-            success: true,
-            output: outputs.join('\n'),
-          };
-        }
-      }
-
-      if (code.includes('def ')) {
-        return {
-          success: true,
-          output: 'Function defined successfully',
-        };
-      }
-
-      return {
-        success: true,
-        output: 'Code executed successfully',
-      };
-    } catch (error) {
+    if (!response.ok) {
       return {
         success: false,
         output: '',
-        error: `SyntaxError: ${error instanceof Error ? error.message : 'Invalid syntax'}`,
+        error: data.error || `Execution failed (HTTP ${response.status})`,
+        executionTime: Date.now() - startTime,
       };
     }
+
+    return {
+      success: data.success,
+      output: data.output || '',
+      error: data.error || undefined,
+      executionTime: data.executionTime || Date.now() - startTime,
+      memoryUsage: data.memoryUsage,
+    };
   }
 
-  private mockCSharpExecution(code: string): Omit<ExecutionResult, 'executionTime'> {
-    try {
-      const hasClassDef = code.includes('class ') || code.includes('static ');
-
-      // Check for Console.WriteLine
-      if (code.includes('Console.WriteLine')) {
-        const matches = code.match(/Console\.WriteLine\((.*?)\)/g);
-        if (matches) {
-          const outputs = matches.map(match => {
-            const content = match.replace(/Console\.WriteLine\((.*?)\)/, '$1');
-            // Simple evaluation for demo purposes
-            if (content.includes('"')) {
-              return content.replace(/"/g, '');
-            }
-            if (content.includes('Greet')) {
-              return 'Hello, World!';
-            }
-            return content;
-          });
-
-          // If inside a class definition, also include compilation message
-          if (hasClassDef) {
-            outputs.push('Code compiled and executed successfully');
-          }
-
-          return {
-            success: true,
-            output: outputs.join('\n'),
-          };
-        }
-      }
-
-      if (hasClassDef) {
-        return {
-          success: true,
-          output: 'Code compiled and executed successfully',
-        };
-      }
-
-      // Check for missing semicolons
-      const lines = code.split('\n').filter(line => line.trim());
-      for (const line of lines) {
-        if (line.includes('=') && !line.includes('==') && !line.trim().endsWith(';') && !line.includes('{') && !line.includes('}')) {
-          return {
-            success: false,
-            output: '',
-            error: 'CS1002: ; expected',
-          };
-        }
-      }
-
-      return {
-        success: true,
-        output: 'Code executed successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        output: '',
-        error: `Compilation error: ${error instanceof Error ? error.message : 'Invalid syntax'}`,
-      };
-    }
-  }
-
-  // Format code using language-specific formatters
+  /**
+   * Format code — basic indentation formatter.
+   * In production this would call Prettier / Black / dotnet-format.
+   */
   async formatCode(code: string, language: Language): Promise<string> {
-    // In production, this would use actual formatters like Prettier, Black, etc.
-    // For now, we'll do basic formatting
-    
     const lines = code.split('\n');
     const formattedLines: string[] = [];
     let indentLevel = 0;
-    
+
     for (const line of lines) {
       let trimmedLine = line.trim();
 
@@ -285,7 +119,11 @@ export class CodeExecutionService {
       }
 
       // Decrease indent for closing braces/brackets
-      if (trimmedLine.startsWith('}') || trimmedLine.startsWith(']') || trimmedLine.startsWith(')')) {
+      if (
+        trimmedLine.startsWith('}') ||
+        trimmedLine.startsWith(']') ||
+        trimmedLine.startsWith(')')
+      ) {
         indentLevel = Math.max(0, indentLevel - 1);
       }
 
@@ -294,7 +132,11 @@ export class CodeExecutionService {
       formattedLines.push(indent + trimmedLine);
 
       // Increase indent for opening braces/brackets
-      if (trimmedLine.endsWith('{') || trimmedLine.endsWith('[') || trimmedLine.endsWith('(')) {
+      if (
+        trimmedLine.endsWith('{') ||
+        trimmedLine.endsWith('[') ||
+        trimmedLine.endsWith('(')
+      ) {
         indentLevel++;
       }
 
@@ -305,7 +147,7 @@ export class CodeExecutionService {
         }
       }
     }
-    
+
     return formattedLines.join('\n');
   }
 }

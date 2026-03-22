@@ -7,13 +7,17 @@ import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
 
 interface MonacoEditorProps {
+  /** Editor value — ignored when `collaborative` is true (Yjs manages content) */
   value: string;
+  /** Change callback — ignored when `collaborative` is true */
   onChange: (value: string) => void;
   language: Language;
   readOnly?: boolean;
   height?: string | number;
   theme?: 'light' | 'dark';
   onMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void;
+  /** When true, Yjs CRDT manages content; value/onChange are ignored */
+  collaborative?: boolean;
 }
 
 const LANGUAGE_MAP: Record<Language, string> = {
@@ -55,6 +59,7 @@ export function MonacoEditor({
   height = '400px',
   theme,
   onMount,
+  collaborative = false,
 }: MonacoEditorProps) {
   const { user } = useUserStore();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -138,6 +143,8 @@ export function MonacoEditor({
   };
 
   const handleEditorChange: OnChange = (value) => {
+    // In collaborative mode, Yjs manages content — skip React state updates
+    if (collaborative) return;
     if (value !== undefined) {
       onChange(value);
     }
@@ -157,26 +164,33 @@ export function MonacoEditor({
     if (isEditorReady && editorRef.current) {
       const model = editorRef.current.getModel();
       if (model) {
-        const monacoLanguage = LANGUAGE_MAP[language];
-        // Create a new model with the new language
-        const newModel = monaco.editor.createModel(
-          model.getValue(),
-          monacoLanguage
-        );
-        editorRef.current.setModel(newModel);
+        if (collaborative) {
+          // In collaborative mode, keep the same model (Yjs binding owns it)
+          // Just change the language setting on the existing model
+          monaco.editor.setModelLanguage(model, LANGUAGE_MAP[language]);
+        } else {
+          const monacoLanguage = LANGUAGE_MAP[language];
+          // Create a new model with the new language
+          const newModel = monaco.editor.createModel(
+            model.getValue(),
+            monacoLanguage
+          );
+          editorRef.current.setModel(newModel);
 
-        // Dispose of the old model to prevent memory leaks
-        model.dispose();
+          // Dispose of the old model to prevent memory leaks
+          model.dispose();
+        }
       }
     }
-  }, [language, isEditorReady]);
+  }, [language, isEditorReady, collaborative]);
 
   return (
     <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">
       <Editor
         height={height}
         language={monacoLanguage}
-        value={editorValue}
+        // In collaborative mode, Yjs manages content via MonacoBinding
+        {...(collaborative ? {} : { value: editorValue })}
         theme={editorTheme}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}

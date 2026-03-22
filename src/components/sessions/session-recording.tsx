@@ -17,7 +17,7 @@ import {
   EyeOff,
   Trash2
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import type { SessionRecording, CreateRecordingData } from '@/types';
 
 interface SessionRecordingProps {
@@ -397,7 +397,7 @@ function RecordingCard({ recording, isInstructor, onDelete }: RecordingCardProps
                 {formatDuration(recording.duration)}
               </div>
               <span>
-                Created {new Date(recording.createdAt).toLocaleDateString()}
+                Created {formatDate(recording.createdAt)}
               </span>
             </div>
           </div>

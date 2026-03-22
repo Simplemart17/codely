@@ -32,7 +32,7 @@ export function SessionList({
   onCreateSession,
   filter = 'all'
 }: SessionListProps) {
-  const { userSessions, fetchUserSessions, isLoading, error } = useSessionStore();
+  const { userSessions, fetchUserSessions, isFetching, error } = useSessionStore();
   const { user } = useUserStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [languageFilter, setLanguageFilter] = useState<Language | 'all'>('all');
@@ -55,9 +55,7 @@ export function SessionList({
     if (statusFilter !== 'all' && session.status !== statusFilter) {
       return false;
     }
-    if (filter === 'my-sessions' && session.instructorId !== user?.id) {
-      return false;
-    }
+    // Server-side already filters my-sessions correctly for both instructors and learners
     return true;
   });
 
@@ -70,7 +68,7 @@ export function SessionList({
     }
   };
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (

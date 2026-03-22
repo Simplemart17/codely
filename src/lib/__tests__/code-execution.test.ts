@@ -1,134 +1,149 @@
 import { CodeExecutionService, codeExecutionService } from '../code-execution';
+import type { Language } from '@/types';
+
+// Mock global fetch
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 describe('CodeExecutionService', () => {
   let service: CodeExecutionService;
 
   beforeEach(() => {
     service = CodeExecutionService.getInstance();
+    mockFetch.mockReset();
   });
 
-  describe('JavaScript execution', () => {
-    it('should execute console.log statements', async () => {
-      const code = 'console.log("Hello, World!");';
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+  // Helper: simulate a successful API response
+  function mockApiSuccess(stdout: string, stderr = '') {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: !stderr,
+        output: stdout,
+        error: stderr || undefined,
+        executionTime: 42,
+        memoryUsage: 1024,
+      }),
+    });
+  }
+
+  // Helper: simulate an API error
+  function mockApiError(status: number, error: string) {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status,
+      json: async () => ({ error }),
+    });
+  }
+
+  describe('API-based execution', () => {
+    it('should send correct request to /api/execute', async () => {
+      mockApiSuccess('Hello, World!');
+
+      const result = await service.executeCode(
+        'console.log("Hello, World!");',
+        'JAVASCRIPT'
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/execute',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.language).toBe('javascript');
+      expect(body.code).toBe('console.log("Hello, World!");');
 
       expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, World!');
-      expect(result.executionTime).toBeGreaterThan(0);
+      expect(result.output).toBe('Hello, World!');
+      expect(result.executionTime).toBe(42);
     });
 
-    it('should handle function definitions', async () => {
-      const code = `
-        function greet(name) {
-          return "Hello, " + name;
-        }
-      `;
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+    it('should handle API error responses', async () => {
+      mockApiError(502, 'Execution engine error');
 
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Function defined successfully');
-    });
-
-    it('should detect reference errors', async () => {
-      const code = 'console.log(undefinedVariable);';
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+      const result = await service.executeCode(
+        'console.log("test");',
+        'JAVASCRIPT'
+      );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('ReferenceError');
+      expect(result.error).toBe('Execution engine error');
     });
 
-    it('should handle multiple console.log statements', async () => {
-      const code = `
-        console.log("First line");
-        console.log("Second line");
-      `;
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+    it('should handle stderr in API response', async () => {
+      mockApiSuccess('', 'ReferenceError: x is not defined');
 
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('First line');
-      expect(result.output).toContain('Second line');
-    });
-  });
-
-  describe('Python execution', () => {
-    it('should execute print statements', async () => {
-      const code = 'print("Hello, Python!")';
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, Python!');
-    });
-
-    it('should handle function definitions', async () => {
-      const code = `
-def greet(name):
-    return f"Hello, {name}"
-      `;
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Function defined successfully');
-    });
-
-    it('should detect syntax errors', async () => {
-      const code = 'if True\n    print("Missing colon")';
-      const result = await service.executeCode(code, 'PYTHON');
+      const result = await service.executeCode(
+        'console.log(x);',
+        'JAVASCRIPT'
+      );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('SyntaxError');
+      expect(result.error).toBe('ReferenceError: x is not defined');
     });
 
-    it('should handle multiple print statements', async () => {
-      const code = `
-print("First line")
-print("Second line")
-      `;
-      const result = await service.executeCode(code, 'PYTHON');
+    it('should pass stdin and timeout options', async () => {
+      mockApiSuccess('42');
 
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('First line');
-      expect(result.output).toContain('Second line');
+      await service.executeCode('process.stdin', 'JAVASCRIPT', {
+        stdin: '42',
+        timeout: 5000,
+      });
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.stdin).toBe('42');
+      expect(body.timeout).toBe(5000);
+    });
+
+    it('should map PYTHON language correctly', async () => {
+      mockApiSuccess('Hello');
+
+      await service.executeCode('print("Hello")', 'PYTHON');
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.language).toBe('python');
+    });
+
+    it('should map CSHARP language correctly', async () => {
+      mockApiSuccess('Hello');
+
+      await service.executeCode('Console.WriteLine("Hello");', 'CSHARP');
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.language).toBe('csharp');
+    });
+
+    it('should propagate network errors', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(
+        service.executeCode(
+          'console.log("Hello, World!");',
+          'JAVASCRIPT'
+        )
+      ).rejects.toThrow('Network error');
     });
   });
 
-  describe('C# execution', () => {
-    it('should execute Console.WriteLine statements', async () => {
-      const code = 'Console.WriteLine("Hello, C#!");';
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, C#!');
-    });
-
-    it('should handle class and method definitions', async () => {
-      const code = `
-class Program {
-    static void Main() {
-        Console.WriteLine("Hello World");
-    }
-}
-      `;
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Code compiled and executed successfully');
-    });
-
-    it('should detect missing semicolons', async () => {
-      const code = 'string message = "Hello"';
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('CS1002');
-    });
-  });
-
-  describe('Error handling', () => {
+  describe('Input validation', () => {
     it('should handle empty code', async () => {
       const result = await service.executeCode('', 'JAVASCRIPT');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle whitespace-only code', async () => {
@@ -136,14 +151,18 @@ class Program {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle unsupported language', async () => {
-      // @ts-expect-error Testing unsupported language
-      const result = await service.executeCode('print("test")', 'UNSUPPORTED');
+      const result = await service.executeCode(
+        'print("test")',
+        'UNSUPPORTED' as Language
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unsupported language');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
@@ -218,19 +237,30 @@ function test() {
   });
 
   describe('Execution options', () => {
-    it('should respect timeout option', async () => {
-      const code = 'console.log("test");';
-      const result = await service.executeCode(code, 'JAVASCRIPT', { timeout: 5000 });
+    it('should pass timeout option to API', async () => {
+      mockApiSuccess('test');
 
-      expect(result.success).toBe(true);
-      expect(result.executionTime).toBeLessThan(5000);
+      await service.executeCode('console.log("test");', 'JAVASCRIPT', {
+        timeout: 5000,
+      });
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.timeout).toBe(5000);
     });
 
-    it('should handle memory limit option', async () => {
-      const code = 'console.log("test");';
-      const result = await service.executeCode(code, 'JAVASCRIPT', { memoryLimit: 128 });
+    it('should pass memory limit option to API', async () => {
+      mockApiSuccess('test');
 
-      expect(result.success).toBe(true);
+      await service.executeCode('console.log("test");', 'JAVASCRIPT', {
+        memoryLimit: 128,
+      });
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.memoryLimit).toBe(128);
     });
   });
 });

@@ -24,7 +24,7 @@ export default function SessionCodePage() {
   const router = useRouter();
   const sessionId = params.id as string;
 
-  const { currentSession, participants, fetchSession, isLoading, error } =
+  const { currentSession, participants, fetchSession, isFetching, error } =
     useSessionStore();
   const { user } = useUserStore();
 
@@ -47,7 +47,7 @@ export default function SessionCodePage() {
   const handleBack = () => router.push(`/sessions/${sessionId}`);
   const activeParticipants = participants.filter((p) => p.isActive);
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">

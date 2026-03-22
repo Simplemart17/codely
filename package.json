@@ -18,7 +18,8 @@
     "test:e2e:ui": "playwright test --ui",
     "analyze": "ANALYZE=true npm run build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "yjs-server": "node server/yjs-server.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

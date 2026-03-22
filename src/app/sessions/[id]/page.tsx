@@ -67,7 +67,7 @@ export default function SessionDetailPage() {
     fetchSession,
     joinSession,
     leaveSession,
-    isLoading,
+    isFetching,
     error,
   } = useSessionStore();
   const { user } = useUserStore();
@@ -107,7 +107,7 @@ export default function SessionDetailPage() {
   const isInstructor = user && currentSession?.instructorId === user.id;
   const activeParticipants = participants.filter((p) => p.isActive);
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <ClientLayout>
         <div className="flex-1 p-6 lg:p-8">

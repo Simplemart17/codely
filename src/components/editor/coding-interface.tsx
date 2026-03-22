@@ -1,8 +1,18 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import * as monaco from 'monaco-editor';
+import { MonacoEditor } from './monaco-editor';
+import { EditorToolbar } from './editor-toolbar';
+import { OutputPanel, createOutputLine } from './output-panel';
+import { ConnectionStatus } from './connection-status';
+import { codeExecutionService } from '@/lib/code-execution';
+import { useSessionStore } from '@/stores/session-store';
+import { useUserStore } from '@/stores/user-store';
+import { useCollaboration } from '@/hooks/use-collaboration';
 import { RealtimeService } from '@/lib/services/realtime-service';
-import type { CodeChangeEvent, LanguageChangeEvent } from '@/lib/services/realtime-service';
+import type { LanguageChangeEvent } from '@/lib/services/realtime-service';
+import type { Language } from '@/types';
 
 // Extend Window interface for auto-save timeout
 declare global {
@@ -10,15 +20,6 @@ declare global {
     autoSaveTimeout?: NodeJS.Timeout;
   }
 }
-import * as monaco from 'monaco-editor';
-import { MonacoEditor } from './monaco-editor';
-import { EditorToolbar } from './editor-toolbar';
-import { OutputPanel, createOutputLine } from './output-panel';
-import { UserPresence } from './user-presence';
-import { codeExecutionService } from '@/lib/code-execution';
-import { useSessionStore } from '@/stores/session-store';
-import { useUserStore } from '@/stores/user-store';
-import type { Language } from '@/types';
 
 interface CodingInterfaceProps {
   sessionId?: string;
@@ -41,226 +42,290 @@ export function CodingInterface({
 }: CodingInterfaceProps) {
   const { user } = useUserStore();
   const { updateSession } = useSessionStore();
-  
-  const [code, setCode] = useState(initialCode);
+
   const [language, setLanguage] = useState<Language>(initialLanguage);
-  const [output, setOutput] = useState<Array<{ id: string; type: 'stdout' | 'stderr' | 'info' | 'error'; content: string; timestamp: Date }>>([]);
+  const [output, setOutput] = useState<
+    Array<{
+      id: string;
+      type: 'stdout' | 'stderr' | 'info' | 'error';
+      content: string;
+      timestamp: Date;
+    }>
+  >([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const realtimeServiceRef = useRef<RealtimeService | null>(null);
 
-  const handleCodeChange = useCallback((newCode: string) => {
-    // Prevent infinite loops when receiving updates from WebSocket
-    if (isReceivingUpdate) {
-      return;
-    }
+  // Whether this is a collaborative session (has sessionId and user)
+  const isCollaborative = Boolean(sessionId && user);
 
-    setCode(newCode);
-    onCodeChange?.(newCode);
+  // --- CRDT Collaboration ---
+  const collaboration = useCollaboration({
+    sessionId: sessionId || '',
+    user: user
+      ? { id: user.id, name: user.name, avatar: user.avatar }
+      : { id: '', name: '' },
+    initialContent: initialCode,
+    enabled: isCollaborative,
+  });
 
-    // Send real-time update via Supabase Realtime
-    if (sessionId && user) {
-      const realtimeService = new RealtimeService();
-      realtimeService.sendCodeChange(newCode, language);
-    }
+  // Non-collaborative code state (used when no session)
+  const [localCode, setLocalCode] = useState(initialCode);
 
-    // Auto-save code changes to session (debounced)
-    if (sessionId) {
-      // Clear previous timeout
-      if (window.autoSaveTimeout) {
-        clearTimeout(window.autoSaveTimeout);
-      }
-
-      // Set new timeout for auto-save (1 second delay)
-      window.autoSaveTimeout = setTimeout(() => {
-        updateSession(sessionId, {
-          code: newCode,
-          updatedAt: new Date(),
-        }).catch(error => {
-          console.error('Failed to auto-save code:', error);
-        });
-      }, 1000);
-    }
-  }, [onCodeChange, sessionId, updateSession, isReceivingUpdate, language, user]);
-
-  const handleLanguageChange = useCallback((newLanguage: Language) => {
-    setLanguage(newLanguage);
-    onLanguageChange?.(newLanguage);
-
-    // Send real-time language update via Supabase Realtime
-    if (sessionId && user) {
-      const realtimeService = new RealtimeService();
-      realtimeService.sendLanguageChange(newLanguage);
-    }
-
-    // Update session with new language if sessionId is provided
-    if (sessionId) {
-      updateSession(sessionId, {
-        language: newLanguage,
-        updatedAt: new Date(),
-      }).catch(error => {
-        console.error('Failed to update session language:', error);
-      });
-    }
-  }, [onLanguageChange, sessionId, updateSession, user]);
-
-  const handleRun = useCallback(async () => {
-    if (isRunning || !code.trim()) return;
-
-    setIsRunning(true);
-    setOutput(prev => [
-      ...prev,
-      createOutputLine('info', `Running ${language.toLowerCase()} code...`),
-    ]);
-
-    try {
-      const result = await codeExecutionService.executeCode(code, language);
-      
-      if (result.success) {
-        setOutput(prev => [
-          ...prev,
-          createOutputLine('stdout', result.output),
-          createOutputLine('info', `Execution completed in ${result.executionTime}ms`),
-        ]);
-      } else {
-        setOutput(prev => [
-          ...prev,
-          createOutputLine('error', result.error || 'Execution failed'),
-        ]);
-      }
-    } catch {
-      setOutput(prev => [
-        ...prev,
-        createOutputLine('error', 'Unknown error'),
-      ]);
-    } finally {
-      setIsRunning(false);
-    }
-  }, [code, language, isRunning]);
-
-  const handleSave = useCallback(async () => {
-    if (isSaving) return;
-
-    setIsSaving(true);
-    setOutput(prev => [
-      ...prev,
-      createOutputLine('info', 'Saving code...'),
-    ]);
-
-    try {
-      // Save to session if sessionId is provided
-      if (sessionId) {
-        await updateSession(sessionId, { 
-          code,
-          language,
-          updatedAt: new Date(),
-        });
-      }
-
-      setOutput(prev => [
-        ...prev,
-        createOutputLine('info', 'Code saved successfully'),
-      ]);
-    } catch {
-      setOutput(prev => [
-        ...prev,
-        createOutputLine('error', 'Failed to save code'),
-      ]);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [code, language, sessionId, updateSession, isSaving]);
-
-  // Supabase Realtime connection and event handling
+  // --- Supabase Realtime for language sync (not code — CRDT handles code) ---
   useEffect(() => {
     if (!sessionId || !user) return;
 
-    // Create realtime service instance
     const realtimeService = new RealtimeService();
+    realtimeServiceRef.current = realtimeService;
 
-    // Handle incoming code changes
-    const handleIncomingCodeChange = (event: CodeChangeEvent) => {
-      if (event.userId !== user.id) {
-        setIsReceivingUpdate(true);
-        setCode(event.code);
-        setTimeout(() => setIsReceivingUpdate(false), 100);
-      }
-    };
-
-    // Handle incoming language changes
     const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
       if (event.userId !== user.id) {
         setLanguage(event.language as Language);
       }
     };
 
-    // Set up event listeners
-    realtimeService.onCodeChange(handleIncomingCodeChange);
     realtimeService.onLanguageChange(handleIncomingLanguageChange);
-
-    // Join session
     realtimeService.joinSession(sessionId, user.id, user.name);
 
-    // Cleanup on unmount
     return () => {
       realtimeService.leaveSession();
       realtimeService.cleanup();
+      realtimeServiceRef.current = null;
     };
   }, [sessionId, user]);
+
+  // Get current code content
+  const getCurrentCode = useCallback((): string => {
+    if (isCollaborative) {
+      return collaboration.getContent();
+    }
+    return localCode;
+  }, [isCollaborative, collaboration, localCode]);
+
+  // Handle code changes in non-collaborative mode
+  const handleCodeChange = useCallback(
+    (newCode: string) => {
+      setLocalCode(newCode);
+      onCodeChange?.(newCode);
+
+      // Auto-save code changes to session (debounced)
+      if (sessionId) {
+        if (window.autoSaveTimeout) {
+          clearTimeout(window.autoSaveTimeout);
+        }
+        window.autoSaveTimeout = setTimeout(() => {
+          updateSession(sessionId, {
+            code: newCode,
+            updatedAt: new Date(),
+          }).catch((error) => {
+            console.error('Failed to auto-save code:', error);
+          });
+        }, 1000);
+      }
+    },
+    [onCodeChange, sessionId, updateSession]
+  );
+
+  // Auto-save collaborative content periodically
+  useEffect(() => {
+    if (!isCollaborative || !sessionId) return;
+
+    const autoSaveInterval = setInterval(() => {
+      const content = collaboration.getContent();
+      if (content) {
+        updateSession(sessionId, {
+          code: content,
+          updatedAt: new Date(),
+        }).catch((error) => {
+          console.error('Failed to auto-save collaborative code:', error);
+        });
+      }
+    }, 5000); // Save every 5 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [isCollaborative, sessionId, collaboration, updateSession]);
+
+  const handleLanguageChange = useCallback(
+    (newLanguage: Language) => {
+      setLanguage(newLanguage);
+      onLanguageChange?.(newLanguage);
+
+      // Broadcast language change via Supabase Realtime
+      if (realtimeServiceRef.current) {
+        realtimeServiceRef.current.sendLanguageChange(newLanguage);
+      }
+
+      // Persist to session
+      if (sessionId) {
+        updateSession(sessionId, {
+          language: newLanguage,
+          updatedAt: new Date(),
+        }).catch((error) => {
+          console.error('Failed to update session language:', error);
+        });
+      }
+    },
+    [onLanguageChange, sessionId, updateSession]
+  );
+
+  const handleRun = useCallback(async () => {
+    const code = getCurrentCode();
+    if (isRunning || !code.trim()) return;
+
+    setIsRunning(true);
+    setOutput((prev) => [
+      ...prev,
+      createOutputLine('info', `Running ${language.toLowerCase()} code...`),
+    ]);
+
+    try {
+      const result = await codeExecutionService.executeCode(code, language);
+
+      if (result.success) {
+        setOutput((prev) => [
+          ...prev,
+          createOutputLine('stdout', result.output),
+          createOutputLine(
+            'info',
+            `Execution completed in ${result.executionTime}ms`
+          ),
+        ]);
+      } else {
+        setOutput((prev) => [
+          ...prev,
+          createOutputLine('error', result.error || 'Execution failed'),
+        ]);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown error';
+      setOutput((prev) => [
+        ...prev,
+        createOutputLine(
+          'error',
+          `Execution failed: ${message}`
+        ),
+      ]);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [getCurrentCode, language, isRunning]);
+
+  const handleSave = useCallback(async () => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+    setOutput((prev) => [
+      ...prev,
+      createOutputLine('info', 'Saving code...'),
+    ]);
+
+    try {
+      if (sessionId) {
+        const code = getCurrentCode();
+        await updateSession(sessionId, {
+          code,
+          language,
+          updatedAt: new Date(),
+        });
+      }
+
+      setOutput((prev) => [
+        ...prev,
+        createOutputLine('info', 'Code saved successfully'),
+      ]);
+    } catch {
+      setOutput((prev) => [
+        ...prev,
+        createOutputLine('error', 'Failed to save code'),
+      ]);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [getCurrentCode, language, sessionId, updateSession, isSaving]);
 
   const handleFormat = useCallback(async () => {
     if (!editorRef.current) return;
 
     try {
-      setOutput(prev => [
+      setOutput((prev) => [
         ...prev,
         createOutputLine('info', 'Formatting code...'),
       ]);
 
-      const formattedCode = await codeExecutionService.formatCode(code, language);
-      setCode(formattedCode);
-      editorRef.current.setValue(formattedCode);
+      const code = getCurrentCode();
+      const formattedCode = await codeExecutionService.formatCode(
+        code,
+        language
+      );
 
-      setOutput(prev => [
+      if (isCollaborative) {
+        // In collaborative mode, set content through CRDT
+        collaboration.setContent(formattedCode);
+      } else {
+        setLocalCode(formattedCode);
+        editorRef.current.setValue(formattedCode);
+      }
+
+      setOutput((prev) => [
         ...prev,
         createOutputLine('info', 'Code formatted successfully'),
       ]);
     } catch {
-      setOutput(prev => [
+      setOutput((prev) => [
         ...prev,
         createOutputLine('error', 'Failed to format code'),
       ]);
     }
-  }, [code, language]);
+  }, [getCurrentCode, language, isCollaborative, collaboration]);
 
   const handleClearOutput = useCallback(() => {
     setOutput([]);
   }, []);
 
-  const handleEditorMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor;
+  const handleEditorMount = useCallback(
+    (editor: monaco.editor.IStandaloneCodeEditor) => {
+      editorRef.current = editor;
 
-    // Add keyboard shortcuts
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      handleRun();
-    });
+      // Bind editor to CRDT document for collaborative editing
+      if (isCollaborative) {
+        collaboration.bindEditor(editor);
+      }
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave();
-    });
+      // Add keyboard shortcuts
+      editor.addCommand(
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+        () => {
+          handleRun();
+        }
+      );
 
-    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
-      handleFormat();
-    });
-  }, [handleRun, handleSave, handleFormat]);
+      editor.addCommand(
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+        () => {
+          handleSave();
+        }
+      );
 
-  const canChangeLanguage = !readOnly && (!sessionId || user?.role === 'INSTRUCTOR');
+      editor.addCommand(
+        monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
+        () => {
+          handleFormat();
+        }
+      );
+    },
+    [handleRun, handleSave, handleFormat, isCollaborative, collaboration]
+  );
+
+  const canChangeLanguage =
+    !readOnly && (!sessionId || user?.role === 'INSTRUCTOR');
   const showRunButton = !readOnly;
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="flex h-full flex-col bg-background">
       {/* Toolbar */}
       {showToolbar && (
         <EditorToolbar
@@ -276,29 +341,34 @@ export function CodingInterface({
         />
       )}
 
-      {/* User Presence Indicator */}
-      {sessionId && (
-        <div className="px-4 py-2 border-b border-border bg-muted/30">
-          <UserPresence sessionId={sessionId} />
+      {/* Collaboration Status Bar */}
+      {isCollaborative && (
+        <div className="border-b border-border bg-muted/30 px-4 py-2">
+          <ConnectionStatus
+            status={collaboration.connectionStatus}
+            connectedUsers={collaboration.connectedUsers}
+            isSynced={collaboration.isSynced}
+          />
         </div>
       )}
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Code Editor */}
-        <div className="flex-1 min-h-0">
+        <div className="min-h-0 flex-1">
           <MonacoEditor
-            value={code}
+            value={localCode}
             onChange={handleCodeChange}
             language={language}
             readOnly={readOnly}
             height="100%"
             onMount={handleEditorMount}
+            collaborative={isCollaborative}
           />
         </div>
 
         {/* Output Panel */}
-        <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-300">
+        <div className="w-full border-t border-border lg:w-96 lg:border-l lg:border-t-0">
           <OutputPanel
             output={output}
             isRunning={isRunning}
@@ -309,18 +379,40 @@ export function CodingInterface({
       </div>
 
       {/* Status Bar */}
-      <div className="bg-gray-100 border-t border-gray-300 px-4 py-2 text-xs text-gray-600 flex justify-between items-center">
+      <div className="flex items-center justify-between border-t border-border bg-muted px-4 py-2 text-xs text-muted-foreground">
         <div className="flex items-center space-x-4">
           <span>Language: {language}</span>
-          <span>Lines: {code.split('\n').length}</span>
-          <span>Characters: {code.length}</span>
+          <span>
+            Lines: {getCurrentCode().split('\n').length}
+          </span>
+          <span>Characters: {getCurrentCode().length}</span>
         </div>
         <div className="flex items-center space-x-4">
+          {isCollaborative && (
+            <span className="flex items-center gap-1">
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  collaboration.connectionStatus === 'connected'
+                    ? 'bg-green-500'
+                    : collaboration.connectionStatus === 'connecting'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
+                }`}
+              />
+              {collaboration.connectionStatus === 'connected'
+                ? 'Live'
+                : collaboration.connectionStatus === 'connecting'
+                  ? 'Connecting...'
+                  : 'Offline'}
+            </span>
+          )}
           {sessionId && (
             <span>Session: {sessionId.slice(0, 8)}...</span>
           )}
           {user && (
-            <span>{user.name} ({user.role.toLowerCase()})</span>
+            <span>
+              {user.name} ({user.role.toLowerCase()})
+            </span>
           )}
         </div>
       </div>

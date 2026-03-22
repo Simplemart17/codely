@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { User, UserPreferences } from '@/types';
+import { toDate } from '@/lib/utils';
 import { updateUser as updateUserAction } from '@/lib/actions/user-actions';
+
+function hydrateUser(u: Record<string, unknown>): User {
+  return {
+    ...u,
+    createdAt: toDate(u.createdAt),
+    updatedAt: toDate(u.updatedAt),
+  } as User;
+}
 
 interface UserState {
   // User data
@@ -43,18 +52,25 @@ export const useUserStore = create<UserState>()(
 
         // loadUser still uses API route (GET /api/users)
         loadUser: async () => {
+          // Prevent concurrent loads but allow re-auth attempts
+          // after a brief delay
+          if (get().isLoading) return;
+
           set({ isLoading: true, error: null });
           try {
             const response = await fetch('/api/users');
 
             if (response.ok) {
-              const { user } = await response.json();
+              const data = await response.json();
               set({
-                user,
+                user: hydrateUser(data.user),
                 isAuthenticated: true,
                 isLoading: false,
               });
-            } else if (response.status === 404) {
+            } else if (
+              response.status === 401 ||
+              response.status === 404
+            ) {
               set({
                 user: null,
                 isAuthenticated: false,
@@ -64,14 +80,16 @@ export const useUserStore = create<UserState>()(
               throw new Error('Failed to load user');
             }
           } catch (error) {
+            // On network error, keep existing user from persisted store
+            const currentUser = get().user;
             set({
               error:
                 error instanceof Error
                   ? error.message
                   : 'Failed to load user',
               isLoading: false,
-              user: null,
-              isAuthenticated: false,
+              user: currentUser,
+              isAuthenticated: !!currentUser,
             });
           }
         },
@@ -96,7 +114,9 @@ export const useUserStore = create<UserState>()(
             }
 
             set({
-              user: result.data,
+              user: hydrateUser(
+                result.data as unknown as Record<string, unknown>
+              ),
               isLoading: false,
             });
           } catch (error) {
@@ -127,7 +147,9 @@ export const useUserStore = create<UserState>()(
             }
 
             set({
-              user: result.data,
+              user: hydrateUser(
+                result.data as unknown as Record<string, unknown>
+              ),
               isLoading: false,
             });
           } catch (error) {
@@ -162,6 +184,13 @@ export const useUserStore = create<UserState>()(
           user: state.user,
           isAuthenticated: state.isAuthenticated,
         }),
+        onRehydrateStorage: () => (state) => {
+          if (state?.user) {
+            state.user = hydrateUser(
+              state.user as unknown as Record<string, unknown>
+            );
+          }
+        },
       }
     ),
     {

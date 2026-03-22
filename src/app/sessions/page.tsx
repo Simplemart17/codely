@@ -1,17 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
 import { SessionList } from '@/components/sessions/session-list';
 import { CreateSessionForm } from '@/components/sessions/create-session-form';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -23,22 +17,21 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClientLayout } from '@/components/layout/client-layout';
 import { Plus } from 'lucide-react';
-import Link from 'next/link';
 
 export default function SessionsPage() {
-  const { user, isLoading, loadUser } = useUserStore();
+  const user = useUserStore((s) => s.user);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'my-sessions' | 'public'>('all');
-
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
 
   const handleCreateSuccess = () => {
     setShowCreateDialog(false);
   };
 
-  if (isLoading) {
+  // Show loading skeleton only while user data hasn't loaded yet.
+  // ClientLayout handles auth verification and loadUser().
+  // Don't use isLoading here — it toggles during background
+  // re-verification (TOKEN_REFRESHED) and would flash skeletons.
+  if (!user) {
     return (
       <ClientLayout>
         <div className="flex-1 p-6 lg:p-8 space-y-8">
@@ -69,26 +62,6 @@ export default function SessionsPage() {
           </div>
         </div>
       </ClientLayout>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>
-              Please log in to access your coding sessions.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full">
-              <Link href="/login">Sign In</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
     );
   }
 

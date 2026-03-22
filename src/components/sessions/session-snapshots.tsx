@@ -15,7 +15,7 @@ import {
   Eye,
   RotateCcw
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import type { SessionSnapshot, CreateSnapshotData } from '@/types';
 
 interface SessionSnapshotsProps {
@@ -316,7 +316,7 @@ function SnapshotCard({
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {new Date(snapshot.createdAt).toLocaleDateString()}
+                {formatDate(snapshot.createdAt)}
               </div>
             </div>
           </div>

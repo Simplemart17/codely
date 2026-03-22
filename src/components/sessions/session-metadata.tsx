@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Session } from '@/types';
+import { formatDate } from '@/lib/utils';
 
 interface SessionMetadataProps {
   session: Session;
@@ -178,7 +179,7 @@ export function SessionMetadata({ session, showTitle = false, compact = false }:
               </span>
             </div>
             <div className="text-muted-foreground">
-              Created: {new Date(session.createdAt).toLocaleDateString()}
+              Created: {formatDate(session.createdAt)}
             </div>
           </div>
         </div>
