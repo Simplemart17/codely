@@ -73,6 +73,8 @@ All core types live in `src/types/index.ts`. Key enums are string unions: `UserR
 ### Database Tables
 `users`, `sessions`, `session_participants`, `operations`, `session_invitations`, `session_recordings`, `session_snapshots`. Migrations are in `supabase/migrations/`.
 
+All app tables live in a dedicated **`codely`** Postgres schema (not `public`) so the database can be shared with other applications. The schema name is centralized in `src/lib/supabase/constants.ts` (`DB_SCHEMA`) and applied via the Supabase client `db.schema` option and the realtime `postgres_changes` filters. The `codely` schema must be added to the project's API "Exposed schemas" (Dashboard → API, or `[api] schemas` in `supabase/config.toml`) for PostgREST to serve it.
+
 ## Code Style
 - Prettier: single quotes, semicolons, trailing commas (es5), 80 char width, Tailwind class sorting plugin
 - ESLint: next/core-web-vitals + next/typescript

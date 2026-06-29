@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { DB_SCHEMA } from '@/lib/supabase/constants';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface CodeChangeEvent {
@@ -128,7 +129,7 @@ export class RealtimeService {
         'postgres_changes',
         {
           event: 'UPDATE',
-          schema: 'public',
+          schema: DB_SCHEMA,
           table: 'sessions',
           filter: `id=eq.${sessionId}`,
         },
@@ -148,7 +149,7 @@ export class RealtimeService {
         'postgres_changes',
         {
           event: '*',
-          schema: 'public',
+          schema: DB_SCHEMA,
           table: 'session_participants',
           filter: `session_id=eq.${sessionId}`,
         },

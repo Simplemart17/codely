@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { DB_SCHEMA } from './constants';
 
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -8,5 +9,7 @@ export function createClient() {
     throw new Error('Missing Supabase environment variables');
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    db: { schema: DB_SCHEMA },
+  });
 }
