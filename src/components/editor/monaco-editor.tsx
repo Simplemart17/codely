@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import Editor, { type Monaco, OnMount, OnChange } from '@monaco-editor/react';
+import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
 
@@ -15,7 +15,7 @@ interface MonacoEditorProps {
   readOnly?: boolean;
   height?: string | number;
   theme?: 'light' | 'dark';
-  onMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void;
+  onMount?: (editor: MonacoEditorNS.IStandaloneCodeEditor) => void;
   /** When true, Yjs CRDT manages content; value/onChange are ignored */
   collaborative?: boolean;
 }
@@ -62,7 +62,8 @@ export function MonacoEditor({
   collaborative = false,
 }: MonacoEditorProps) {
   const { user } = useUserStore();
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
   // Determine theme based on user preferences or prop
@@ -74,9 +75,13 @@ export function MonacoEditor({
   // Use provided value or minimal starter template if completely empty
   const editorValue = value || (value === '' ? STARTER_TEMPLATES[language] || '' : '');
 
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
+  const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
+    monacoRef.current = monacoInstance;
     setIsEditorReady(true);
+
+    // Alias for readability below
+    const monaco = monacoInstance;
 
     // Configure editor options
     editor.updateOptions({
@@ -161,17 +166,18 @@ export function MonacoEditor({
 
   // Update editor language when language prop changes
   useEffect(() => {
-    if (isEditorReady && editorRef.current) {
+    if (isEditorReady && editorRef.current && monacoRef.current) {
       const model = editorRef.current.getModel();
+      const m = monacoRef.current;
       if (model) {
         if (collaborative) {
           // In collaborative mode, keep the same model (Yjs binding owns it)
           // Just change the language setting on the existing model
-          monaco.editor.setModelLanguage(model, LANGUAGE_MAP[language]);
+          m.editor.setModelLanguage(model, LANGUAGE_MAP[language]);
         } else {
           const monacoLanguage = LANGUAGE_MAP[language];
           // Create a new model with the new language
-          const newModel = monaco.editor.createModel(
+          const newModel = m.editor.createModel(
             model.getValue(),
             monacoLanguage
           );
