@@ -47,6 +47,11 @@ export function useCollaboration({
   const documentRef = useRef<CRDTDocument | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  // Store initialContent in a ref so it doesn't trigger reconnections.
+  // It's only used once — when the Yjs document is first synced and empty.
+  // We capture the value at mount time and never update it.
+  const initialContentRef = useRef(initialContent);
+
   const [state, setState] = useState<CollaborationState>({
     isConnected: false,
     isSynced: false,
@@ -55,7 +60,8 @@ export function useCollaboration({
     error: null,
   });
 
-  // Create document and connect on mount
+  // Create document and connect on mount.
+  // Only re-run when session or user identity changes — NOT when content changes.
   useEffect(() => {
     if (!enabled) return;
 
@@ -118,7 +124,7 @@ export function useCollaboration({
     });
 
     // Connect to the WebSocket server (passes initial content for empty documents)
-    doc.connect(WS_URL, initialContent);
+    doc.connect(WS_URL, initialContentRef.current);
 
     return () => {
       doc.destroy();
@@ -133,7 +139,7 @@ export function useCollaboration({
         error: null,
       });
     };
-  }, [sessionId, user.id, user.name, user.avatar, initialContent, enabled]);
+  }, [sessionId, user.id, user.name, user.avatar, enabled]);
 
   // Poll connected users periodically since awareness changes can be missed
   useEffect(() => {

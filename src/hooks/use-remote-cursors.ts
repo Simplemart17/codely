@@ -67,15 +67,28 @@ export function useRemoteCursors(
 
           css += `
 .yRemoteSelection-${clientId} {
-  background-color: ${color};
+  background-color: ${color}33;
 }
 .yRemoteSelectionHead-${clientId} {
+  position: relative;
+  border-left: 2px solid ${color};
   border-color: ${color};
 }
 .yRemoteSelectionHead-${clientId}::after {
   content: '${safeName}';
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 2px 4px;
+  border-radius: 3px 3px 3px 0;
   background-color: ${color};
   color: #fff;
+  pointer-events: none;
+  z-index: 10;
 }
 `;
         }

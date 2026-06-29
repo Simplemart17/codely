@@ -1,10 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Editor, { type Monaco, OnMount, OnChange } from '@monaco-editor/react';
+import Editor, { loader, type Monaco, OnMount, OnChange } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
+
+// CRITICAL: Tell @monaco-editor/react to use the local monaco-editor npm
+// package instead of loading from CDN. This ensures y-monaco's MonacoBinding
+// and the Editor share the same Monaco instance, enabling real-time CRDT sync.
+// The promise lets us delay rendering the Editor until the loader is ready.
+let monacoLoaderReady: Promise<void> | null = null;
+if (typeof window !== 'undefined') {
+  monacoLoaderReady = import('monaco-editor').then((monaco) => {
+    loader.config({ monaco });
+  });
+}
 
 interface MonacoEditorProps {
   /** Editor value — ignored when `collaborative` is true (Yjs manages content) */
@@ -65,6 +76,14 @@ export function MonacoEditor({
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isLoaderReady, setIsLoaderReady] = useState(!monacoLoaderReady);
+
+  // Wait for the local monaco-editor package to be configured before rendering
+  useEffect(() => {
+    if (monacoLoaderReady) {
+      monacoLoaderReady.then(() => setIsLoaderReady(true));
+    }
+  }, []);
 
   // Determine theme based on user preferences or prop
   const editorTheme = theme || user?.preferences?.theme === 'dark' ? 'vs-dark' : 'vs-light';
@@ -189,6 +208,17 @@ export function MonacoEditor({
       }
     }
   }, [language, isEditorReady, collaborative]);
+
+  if (!isLoaderReady) {
+    return (
+      <div className="flex items-center justify-center w-full h-full border-2 border-border rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading editor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">

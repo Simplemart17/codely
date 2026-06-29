@@ -7,6 +7,7 @@ import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
 import { ConnectionStatus } from './connection-status';
 import { codeExecutionService } from '@/lib/code-execution';
+import { createClient } from '@/lib/supabase/client';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { useCollaboration } from '@/hooks/use-collaboration';
@@ -66,6 +67,10 @@ export function CodingInterface({
   const editorRef = useRef<MonacoEditorType.IStandaloneCodeEditor | null>(null);
   const realtimeServiceRef = useRef<RealtimeService | null>(null);
 
+  // Stable refs for callbacks to avoid tearing down effects on every render
+  const onSessionEndedRef = useRef(onSessionEnded);
+  onSessionEndedRef.current = onSessionEnded;
+
   // Whether this is a collaborative session (has sessionId and user)
   const isCollaborative = Boolean(sessionId && user);
 
@@ -86,34 +91,38 @@ export function CodingInterface({
   const [localCode, setLocalCode] = useState(initialCode);
 
   // --- Supabase Realtime for language sync (not code — CRDT handles code) ---
+  // Only re-run when session or user identity changes — NOT on every user
+  // object reference change or callback change.
+  const userId = user?.id;
+  const userName = user?.name;
   useEffect(() => {
-    if (!sessionId || !user) return;
+    if (!sessionId || !userId || !userName) return;
 
     const realtimeService = new RealtimeService();
     realtimeServiceRef.current = realtimeService;
 
     const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
-      if (event.userId !== user.id) {
+      if (event.userId !== userId) {
         setLanguage(event.language as Language);
       }
     };
 
     const handleSessionStatusChange = (event: SessionStatusChangeEvent) => {
       if (event.status === 'ENDED') {
-        onSessionEnded?.();
+        onSessionEndedRef.current?.();
       }
     };
 
     realtimeService.onLanguageChange(handleIncomingLanguageChange);
     realtimeService.onSessionStatusChange(handleSessionStatusChange);
-    realtimeService.joinSession(sessionId, user.id, user.name);
+    realtimeService.joinSession(sessionId, userId, userName);
 
     return () => {
       realtimeService.leaveSession();
       realtimeService.cleanup();
       realtimeServiceRef.current = null;
     };
-  }, [sessionId, user, onSessionEnded]);
+  }, [sessionId, userId, userName]);
 
   // Get current code content
   const getCurrentCode = useCallback((): string => {
@@ -135,36 +144,45 @@ export function CodingInterface({
           clearTimeout(window.autoSaveTimeout);
         }
         window.autoSaveTimeout = setTimeout(() => {
-          updateSession(sessionId, {
-            code: newCode,
-            updatedAt: new Date(),
-          }).catch((error) => {
-            console.error('Failed to auto-save code:', error);
-          });
+          const supabase = createClient();
+          supabase
+            .from('sessions')
+            .update({ code: newCode })
+            .eq('id', sessionId)
+            .then(({ error }) => {
+              if (error) console.error('Failed to auto-save code:', error);
+            });
         }, 1000);
       }
     },
-    [onCodeChange, sessionId, updateSession, isInstructor]
+    [onCodeChange, sessionId, isInstructor]
   );
 
-  // Auto-save collaborative content periodically (instructor only)
+  // Auto-save collaborative content periodically (instructor only).
+  // Uses a direct Supabase update to avoid updating the store (which would
+  // trigger re-renders and previously caused reconnection loops).
+  const getCollabContent = collaboration.getContent;
   useEffect(() => {
     if (!isCollaborative || !sessionId || !isInstructor) return;
 
+    const supabase = createClient();
     const autoSaveInterval = setInterval(() => {
-      const content = collaboration.getContent();
+      const content = getCollabContent();
       if (content) {
-        updateSession(sessionId, {
-          code: content,
-          updatedAt: new Date(),
-        }).catch((error) => {
-          console.error('Failed to auto-save collaborative code:', error);
-        });
+        supabase
+          .from('sessions')
+          .update({ code: content })
+          .eq('id', sessionId)
+          .then(({ error }) => {
+            if (error) {
+              console.error('Failed to auto-save collaborative code:', error);
+            }
+          });
       }
     }, 5000); // Save every 5 seconds
 
     return () => clearInterval(autoSaveInterval);
-  }, [isCollaborative, sessionId, collaboration, updateSession, isInstructor]);
+  }, [isCollaborative, sessionId, getCollabContent, isInstructor]);
 
   const handleLanguageChange = useCallback(
     (newLanguage: Language) => {

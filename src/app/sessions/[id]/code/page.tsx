@@ -14,11 +14,27 @@ import {
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { CodingInterface } from '@/components/editor/coding-interface';
+import dynamic from 'next/dynamic';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
 import { ArrowLeft, Maximize2, Minimize2, Square, Users } from 'lucide-react';
+
+// Dynamic import with ssr: false — monaco-editor requires `window`
+const CodingInterface = dynamic(
+  () =>
+    import('@/components/editor/coding-interface').then((m) => ({
+      default: m.CodingInterface,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    ),
+  }
+);
 
 export default function SessionCodePage() {
   const params = useParams();
