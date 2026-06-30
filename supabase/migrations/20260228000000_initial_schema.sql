@@ -186,6 +186,28 @@ create trigger session_recordings_updated_at
   for each row execute function codely.handle_updated_at();
 
 -- ============================================================================
+-- Table: instructor_notes (AI-generated teaching guidance, instructor-only)
+-- ============================================================================
+-- Private notes generated from a session's topic + code to guide the
+-- instructor. Cached once per (session, topic, language). RLS restricts all
+-- access to the session's instructor — learners must never see these, and the
+-- table is deliberately NOT added to the realtime publication below.
+create table codely.instructor_notes (
+  id         uuid primary key default gen_random_uuid(),
+  session_id uuid not null references codely.sessions(id) on delete cascade,
+  topic      text not null,
+  language   varchar(50) not null
+             check (language in ('JAVASCRIPT', 'PYTHON')),
+  content    jsonb not null,
+  model      varchar(100) not null,
+  created_by uuid not null references codely.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (session_id, topic, language)
+);
+
+create index idx_instructor_notes_session_id on codely.instructor_notes(session_id);
+
+-- ============================================================================
 -- Row Level Security
 -- ============================================================================
 
@@ -196,6 +218,7 @@ alter table codely.session_snapshots enable row level security;
 alter table codely.session_invitations enable row level security;
 alter table codely.operations enable row level security;
 alter table codely.session_recordings enable row level security;
+alter table codely.instructor_notes enable row level security;
 
 -- ── users ──────────────────────────────────────────────────────────────────
 create policy "users_select" on codely.users
@@ -299,6 +322,30 @@ create policy "session_recordings_update" on codely.session_recordings
   );
 
 create policy "session_recordings_delete" on codely.session_recordings
+  for delete to authenticated using (
+    session_id in (
+      select id from codely.sessions where instructor_id = auth.uid()
+    )
+  );
+
+-- ── instructor_notes ───────────────────────────────────────────────────────
+-- Instructor-only: every operation is gated on owning the session. This is the
+-- security boundary that keeps AI lesson notes invisible to learners.
+create policy "instructor_notes_select" on codely.instructor_notes
+  for select to authenticated using (
+    session_id in (
+      select id from codely.sessions where instructor_id = auth.uid()
+    )
+  );
+
+create policy "instructor_notes_insert" on codely.instructor_notes
+  for insert to authenticated with check (
+    session_id in (
+      select id from codely.sessions where instructor_id = auth.uid()
+    )
+  );
+
+create policy "instructor_notes_delete" on codely.instructor_notes
   for delete to authenticated using (
     session_id in (
       select id from codely.sessions where instructor_id = auth.uid()

@@ -61,7 +61,7 @@ npm run format:check   # Prettier check formatting
 **Middleware** (`middleware.ts`): Supabase SSR middleware for session refresh. Runs on all routes except static assets.
 
 ### Type System
-All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase.
+All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase. Exception: AI/SDK structured-output schemas and their inferred types live with their usage in `src/lib/ai/` (e.g. `lesson-notes.ts`) — they require `zod/v4` for the Anthropic SDK's `zodOutputFormat` helper, kept out of `src/types/` so the app-wide `zod` v3 usage is unaffected.
 
 ### Design System
 - shadcn/ui components in `src/components/ui/` (button, card, badge, input, select, dialog, tabs, sidebar, etc.)

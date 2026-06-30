@@ -16,6 +16,9 @@ interface EditorToolbarProps {
   isSaving?: boolean;
   canChangeLanguage?: boolean;
   showRunButton?: boolean;
+  showNotesToggle?: boolean;
+  notesShown?: boolean;
+  onToggleNotes?: () => void;
 }
 
 const LANGUAGE_OPTIONS = [
@@ -33,6 +36,9 @@ export function EditorToolbar({
   isSaving = false,
   canChangeLanguage = true,
   showRunButton = true,
+  showNotesToggle = false,
+  notesShown = false,
+  onToggleNotes,
 }: EditorToolbarProps) {
   const { user, updatePreferences } = useUserStore();
   const [showSettings, setShowSettings] = useState(false);
@@ -134,6 +140,17 @@ export function EditorToolbar({
               >
                 ✨ Format
               </Button>
+
+              {showNotesToggle && (
+                <Button
+                  size="sm"
+                  variant={notesShown ? 'default' : 'outline'}
+                  onClick={onToggleNotes}
+                  title="AI lesson notes (only visible to you)"
+                >
+                  📝 Notes
+                </Button>
+              )}
             </div>
           </div>
 

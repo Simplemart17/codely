@@ -25,6 +25,7 @@
     "postinstall": "node scripts/copy-pyodide.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.107.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-slot": "^1.2.4",

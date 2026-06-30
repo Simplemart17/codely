@@ -6,6 +6,7 @@ import { MonacoEditor } from './monaco-editor';
 import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
 import { ConnectionStatus } from './connection-status';
+import { InstructorNotesPanel } from './instructor-notes-panel';
 import { codeExecutionService } from '@/lib/code-execution';
 import type { OutputStream } from '@/lib/code-execution';
 import { createClient } from '@/lib/supabase/client';
@@ -65,6 +66,7 @@ export function CodingInterface({
   >([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   const editorRef = useRef<MonacoEditorType.IStandaloneCodeEditor | null>(null);
   const realtimeServiceRef = useRef<RealtimeService | null>(null);
@@ -439,6 +441,9 @@ export function CodingInterface({
           isSaving={isSaving}
           canChangeLanguage={canChangeLanguage}
           showRunButton={showRunButton}
+          showNotesToggle={isInstructor}
+          notesShown={showNotes}
+          onToggleNotes={() => setShowNotes((v) => !v)}
         />
       )}
 
@@ -477,6 +482,17 @@ export function CodingInterface({
             height="100%"
           />
         </div>
+
+        {/* Instructor Notes — instructor-only, private (never broadcast) */}
+        {sessionId && isInstructor && showNotes && (
+          <div className="w-full border-t border-border lg:w-96 lg:border-l lg:border-t-0">
+            <InstructorNotesPanel
+              sessionId={sessionId}
+              language={language}
+              getCode={getCurrentCode}
+            />
+          </div>
+        )}
       </div>
 
       {/* Status Bar */}
