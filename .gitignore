@@ -20,6 +20,9 @@
 # production
 /build
 
+# self-hosted pyodide runtime (regenerated from node_modules via postinstall)
+/public/pyodide/
+
 # misc
 .DS_Store
 *.pem

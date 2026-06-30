@@ -76,11 +76,16 @@ export class CodeExecutionService {
       };
     }
 
-    // JavaScript executes fully in the browser (Web Worker) — no external
-    // service. Other languages still proxy to the `/api/execute` route.
+    // JavaScript and Python execute fully in the browser (Web Worker) — no
+    // external service. Any remaining language proxies to `/api/execute`.
     if (language === 'JAVASCRIPT' && typeof window !== 'undefined') {
       const { runJavaScriptInBrowser } = await import('./execution/js-runner');
       return runJavaScriptInBrowser(trimmed, options.timeout ?? 10000);
+    }
+
+    if (language === 'PYTHON' && typeof window !== 'undefined') {
+      const { runPythonInBrowser } = await import('./execution/py-runner');
+      return runPythonInBrowser(trimmed, options.timeout);
     }
 
     const response = await fetch('/api/execute', {

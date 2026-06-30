@@ -20,7 +20,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "yjs-server": "node server/yjs-server.mjs",
-    "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\""
+    "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\"",
+    "pyodide:copy": "node scripts/copy-pyodide.mjs",
+    "postinstall": "node scripts/copy-pyodide.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -35,6 +37,7 @@
     "monaco-editor": "^0.55.1",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
+    "pyodide": "^314.0.1",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

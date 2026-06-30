@@ -28,6 +28,10 @@ const customJestConfig = {
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
+    // In-browser execution runs in Web Workers (eval / Pyodide WASM) that
+    // jsdom cannot host; it's exercised via browser integration, not unit
+    // tests, so excluded from coverage rather than mocked into meaninglessness.
+    '!src/lib/execution/**',
   ],
   coverageThreshold: {
     global: {

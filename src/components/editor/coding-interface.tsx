@@ -68,6 +68,10 @@ export function CodingInterface({
 
   const editorRef = useRef<MonacoEditorType.IStandaloneCodeEditor | null>(null);
   const realtimeServiceRef = useRef<RealtimeService | null>(null);
+  // Single-flight guard read synchronously, so the Ctrl+Enter command (which
+  // captures `handleRun` once at editor mount and would otherwise see a stale
+  // `isRunning`) can't launch overlapping runs.
+  const isRunningRef = useRef(false);
 
   // Stable refs for callbacks to avoid tearing down effects on every render
   const onSessionEndedRef = useRef(onSessionEnded);
@@ -231,8 +235,9 @@ export function CodingInterface({
 
   const handleRun = useCallback(async () => {
     const code = getCurrentCode();
-    if (isRunning || !code.trim()) return;
+    if (isRunningRef.current || !code.trim()) return;
 
+    isRunningRef.current = true;
     setIsRunning(true);
     setOutput((prev) => [
       ...prev,
@@ -288,9 +293,10 @@ export function CodingInterface({
         ),
       ]);
     } finally {
+      isRunningRef.current = false;
       setIsRunning(false);
     }
-  }, [getCurrentCode, language, isRunning]);
+  }, [getCurrentCode, language]);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
