@@ -15,9 +15,15 @@ const nextConfig = {
     root: __dirname,
   },
 
-  // Optimize package imports
+  // Optimize package imports.
+  // NOTE: Do NOT add monaco-editor / @monaco-editor/react here. This option
+  // tree-shakes a package down to the named exports you reference, which strips
+  // Monaco's side-effect-only service registrations (e.g. registerSingleton for
+  // IUndoRedoService). That causes a runtime crash on editor creation:
+  // "[createInstance] modelService depends on undoRedoService which is NOT registered."
+  // Only safe for barrels of independent exports (e.g. lucide-react icons).
   experimental: {
-    optimizePackageImports: ['@monaco-editor/react', 'monaco-editor', 'lucide-react'],
+    optimizePackageImports: ['lucide-react'],
   },
 
   // Performance optimizations

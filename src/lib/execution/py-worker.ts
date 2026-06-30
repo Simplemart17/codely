@@ -21,6 +21,24 @@ export {};
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
+// Turbopack (next dev --turbopack) emits this worker as a CLASSIC worker even
+// though py-runner requests `{ type: 'module' }`. Pyodide refuses to run in a
+// classic worker — it probes `globalThis.importScripts` and throws "Classic web
+// workers are not supported" — and our self-hosted runtime ships only the ESM
+// build (pyodide.asm.mjs, no classic pyodide.asm.js), so the classic path can't
+// load anyway. Hiding importScripts makes Pyodide's isClassicWorker() probe
+// fail, routing it to the module path, which loads the runtime via dynamic
+// import() — and dynamic import() works inside a classic worker on modern
+// browsers. In a real module worker importScripts is already absent, so this is
+// a harmless no-op there (keeps `next build` / webpack correct too).
+if (typeof (ctx as { importScripts?: unknown }).importScripts === 'function') {
+  Object.defineProperty(ctx, 'importScripts', {
+    value: undefined,
+    configurable: true,
+    writable: true,
+  });
+}
+
 interface PyProxyDict {
   destroy(): void;
 }

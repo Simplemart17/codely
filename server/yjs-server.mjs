@@ -44,6 +44,26 @@ function getOrCreateDoc(docName) {
     }
   });
 
+  // Relay document updates to every OTHER connected client. Without this,
+  // readSyncMessage applies an incoming edit to the server doc but only replies
+  // to the sender, so peers never receive live edits (presence syncs via the
+  // awareness handler above, but code does not). The `origin` is the sending
+  // ws (set when we call readSyncMessage with `ws` as the transaction origin),
+  // so the author is excluded — they already have the change locally.
+  doc.on('update', (/** @type {Uint8Array} */ update, /** @type {unknown} */ origin) => {
+    const entry = docs.get(docName);
+    if (!entry) return;
+
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MSG_SYNC);
+    writeUpdate(encoder, update);
+    const message = encoding.toUint8Array(encoder);
+
+    for (const [conn] of entry.conns) {
+      if (conn !== origin && conn.readyState === 1) conn.send(message);
+    }
+  });
+
   entry = { doc, awareness, conns: new Map() };
   docs.set(docName, entry);
   return entry;
@@ -71,7 +91,9 @@ function handleConnection(ws, docName) {
       case MSG_SYNC: {
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MSG_SYNC);
-        readSyncMessage(decoder, encoder, doc, null);
+        // Pass `ws` as the transaction origin so the doc 'update' handler can
+        // identify the author and skip echoing the change back to them.
+        readSyncMessage(decoder, encoder, doc, ws);
         if (encoding.length(encoder) > 1) {
           ws.send(encoding.toUint8Array(encoder));
         }
