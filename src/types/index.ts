@@ -2,7 +2,7 @@
 
 // Enums matching Prisma schema
 export type UserRole = 'INSTRUCTOR' | 'LEARNER';
-export type Language = 'JAVASCRIPT' | 'PYTHON' | 'CSHARP';
+export type Language = 'JAVASCRIPT' | 'PYTHON';
 export type SessionStatus = 'ACTIVE' | 'PAUSED' | 'ENDED';
 export type ParticipantRole = 'INSTRUCTOR' | 'LEARNER' | 'OBSERVER';
 export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';

@@ -10,7 +10,7 @@ import type { ActionResult } from './user-actions';
 const CreateSessionSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   description: z.string().max(500).optional(),
-  language: z.enum(['JAVASCRIPT', 'PYTHON', 'CSHARP'] as const),
+  language: z.enum(['JAVASCRIPT', 'PYTHON'] as const),
   maxParticipants: z.number().min(2).max(50).default(10),
   isPublic: z.boolean().default(false),
 });
@@ -19,7 +19,7 @@ const UpdateSessionSchema = z.object({
   sessionId: z.string().uuid(),
   title: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
-  language: z.enum(['JAVASCRIPT', 'PYTHON', 'CSHARP'] as const).optional(),
+  language: z.enum(['JAVASCRIPT', 'PYTHON'] as const).optional(),
   status: z.enum(['ACTIVE', 'PAUSED', 'ENDED'] as const).optional(),
   maxParticipants: z.number().min(2).max(50).optional(),
   isPublic: z.boolean().optional(),

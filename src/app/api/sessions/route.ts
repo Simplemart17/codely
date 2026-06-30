@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate language
-    if (!['JAVASCRIPT', 'PYTHON', 'CSHARP'].includes(language)) {
+    if (!['JAVASCRIPT', 'PYTHON'].includes(language)) {
       return NextResponse.json(
-        { error: 'Invalid language. Must be JAVASCRIPT, PYTHON, or CSHARP' },
+        { error: 'Invalid language. Must be JAVASCRIPT or PYTHON' },
         { status: 400 }
       );
     }

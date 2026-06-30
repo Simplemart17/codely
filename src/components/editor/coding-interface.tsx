@@ -247,8 +247,8 @@ export function CodingInterface({
     try {
       const result = await codeExecutionService.executeCode(code, language);
 
-      // Backends that don't separate streams (the /api/execute path) return a
-      // single `output` blob — treat it as stdout.
+      // Validation errors (empty/unsupported) carry no streams — fall back to
+      // the single `output` blob, treated as stdout.
       const streams: OutputStream[] =
         result.streams ??
         (result.output ? [{ type: 'stdout', content: result.output }] : []);

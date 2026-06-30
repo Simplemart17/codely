@@ -21,7 +21,6 @@ interface EditorToolbarProps {
 const LANGUAGE_OPTIONS = [
   { value: 'JAVASCRIPT', label: 'JavaScript', icon: '🟨' },
   { value: 'PYTHON', label: 'Python', icon: '🐍' },
-  { value: 'CSHARP', label: 'C#', icon: '🔷' },
 ] as const;
 
 export function EditorToolbar({

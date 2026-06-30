@@ -172,7 +172,7 @@ describe('MonacoEditor', () => {
       <MonacoEditor
         value=""
         onChange={mockOnChange}
-        language="CSHARP"
+        language="JAVASCRIPT"
       />
     );
 

@@ -71,8 +71,6 @@ export function SessionTemplateSelector({
         return 'JS';
       case 'PYTHON':
         return 'PY';
-      case 'CSHARP':
-        return 'C#';
       default:
         return '?';
     }

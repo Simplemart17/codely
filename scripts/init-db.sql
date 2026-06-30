@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     instructor_id UUID NOT NULL REFERENCES users(id),
-    language VARCHAR(50) NOT NULL CHECK (language IN ('javascript', 'python', 'csharp')),
+    language VARCHAR(50) NOT NULL CHECK (language IN ('javascript', 'python')),
     status VARCHAR(50) NOT NULL CHECK (status IN ('active', 'paused', 'ended')),
     max_participants INTEGER DEFAULT 10,
     is_public BOOLEAN DEFAULT false,

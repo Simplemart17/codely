@@ -34,7 +34,6 @@ interface MonacoEditorProps {
 const LANGUAGE_MAP: Record<Language, string> = {
   JAVASCRIPT: 'javascript',
   PYTHON: 'python',
-  CSHARP: 'csharp',
 };
 
 const STARTER_TEMPLATES: Record<Language, string> = {
@@ -47,19 +46,6 @@ const STARTER_TEMPLATES: Record<Language, string> = {
 # Start writing your code here
 
 `,
-
-  CSHARP: `// C# coding session
-// Start writing your code here
-
-using System;
-
-class Program
-{
-    static void Main()
-    {
-        // Your code here
-    }
-}`,
 };
 
 export function MonacoEditor({
@@ -192,9 +178,9 @@ export function MonacoEditor({
         if (collaborative) {
           // In collaborative mode, keep the same model (Yjs binding owns it)
           // Just change the language setting on the existing model
-          m.editor.setModelLanguage(model, LANGUAGE_MAP[language]);
+          m.editor.setModelLanguage(model, LANGUAGE_MAP[language] || 'javascript');
         } else {
-          const monacoLanguage = LANGUAGE_MAP[language];
+          const monacoLanguage = LANGUAGE_MAP[language] || 'javascript';
           // Create a new model with the new language
           const newModel = m.editor.createModel(
             model.getValue(),

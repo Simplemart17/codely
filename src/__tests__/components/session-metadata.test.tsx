@@ -131,10 +131,6 @@ describe('SessionMetadata', () => {
     const { rerender } = render(<SessionMetadata session={pythonSession} />);
     expect(screen.getByText('🐍')).toBeInTheDocument();
 
-    const csharpSession = { ...mockSession, language: 'CSHARP' as const };
-    rerender(<SessionMetadata session={csharpSession} />);
-    expect(screen.getByText('🔷')).toBeInTheDocument();
-
     const jsSession = { ...mockSession, language: 'JAVASCRIPT' as const };
     rerender(<SessionMetadata session={jsSession} />);
     expect(screen.getByText('🟨')).toBeInTheDocument();

@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Codely - Collaborative Coding Education Platform",
   description:
-    "Real-time collaborative coding education platform supporting JavaScript, Python, and C#",
+    "Real-time collaborative coding education platform supporting JavaScript and Python",
 };
 
 export default function RootLayout({

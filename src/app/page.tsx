@@ -55,7 +55,7 @@ export default async function Home() {
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
             The collaborative coding platform where instructors and learners
-            build together in real-time. JavaScript, Python, and C# with
+            build together in real-time. JavaScript and Python with
             instant sync.
           </p>
 
@@ -110,7 +110,7 @@ export default async function Home() {
                 Multi-Language Support
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                JavaScript, Python, and C# with full syntax highlighting,
+                JavaScript and Python with full syntax highlighting,
                 autocompletion, and code execution.
               </p>
             </div>

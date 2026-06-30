@@ -9,34 +9,21 @@ export interface OutputStream {
 export interface ExecutionResult {
   success: boolean;
   output: string;
-  /**
-   * Ordered, level-tagged output lines, when the backend can distinguish
-   * stdout from stderr (the in-browser runner). Absent for backends that only
-   * return a single blob — render `output` as stdout in that case.
-   */
+  /** Ordered, level-tagged output lines from the in-browser runner. */
   streams?: OutputStream[];
   error?: string;
   executionTime: number;
-  memoryUsage?: number;
 }
 
 export interface ExecutionOptions {
   timeout?: number; // in milliseconds
-  memoryLimit?: number; // in MB
-  stdin?: string;
 }
-
-const LANGUAGE_MAP: Record<Language, string> = {
-  JAVASCRIPT: 'javascript',
-  PYTHON: 'python',
-  CSHARP: 'csharp',
-};
 
 /**
  * Code Execution Service
  *
- * Sends code to the server-side `/api/execute` route which proxies
- * to the JDoodle code execution API.
+ * Runs code entirely in the browser via Web Workers (JavaScript) and Pyodide
+ * (Python) — no external execution API.
  */
 export class CodeExecutionService {
   private static instance: CodeExecutionService;
@@ -66,63 +53,38 @@ export class CodeExecutionService {
       };
     }
 
-    const langId = LANGUAGE_MAP[language];
-    if (!langId) {
+    // All supported languages execute fully in the browser (Web Worker) — no
+    // external service. Execution is therefore unavailable during SSR.
+    if (typeof window === 'undefined') {
       return {
         success: false,
         output: '',
-        error: `Unsupported language: ${language}`,
+        error: 'Code execution is only available in the browser',
         executionTime: Date.now() - startTime,
       };
     }
 
-    // JavaScript and Python execute fully in the browser (Web Worker) — no
-    // external service. Any remaining language proxies to `/api/execute`.
-    if (language === 'JAVASCRIPT' && typeof window !== 'undefined') {
+    if (language === 'JAVASCRIPT') {
       const { runJavaScriptInBrowser } = await import('./execution/js-runner');
       return runJavaScriptInBrowser(trimmed, options.timeout ?? 10000);
     }
 
-    if (language === 'PYTHON' && typeof window !== 'undefined') {
+    if (language === 'PYTHON') {
       const { runPythonInBrowser } = await import('./execution/py-runner');
       return runPythonInBrowser(trimmed, options.timeout);
     }
 
-    const response = await fetch('/api/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: langId,
-        code: trimmed,
-        stdin: options.stdin || '',
-        timeout: options.timeout || 10000,
-        memoryLimit: options.memoryLimit,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        output: '',
-        error: data.error || `Execution failed (HTTP ${response.status})`,
-        executionTime: Date.now() - startTime,
-      };
-    }
-
     return {
-      success: data.success,
-      output: data.output || '',
-      error: data.error || undefined,
-      executionTime: data.executionTime || Date.now() - startTime,
-      memoryUsage: data.memoryUsage,
+      success: false,
+      output: '',
+      error: `Unsupported language: ${language}`,
+      executionTime: Date.now() - startTime,
     };
   }
 
   /**
    * Format code — basic indentation formatter.
-   * In production this would call Prettier / Black / dotnet-format.
+   * In production this would call Prettier / Black.
    */
   async formatCode(code: string, language: Language): Promise<string> {
     const lines = code.split('\n');
@@ -137,7 +99,7 @@ export class CodeExecutionService {
         continue;
       }
 
-      // For C-style languages, ensure space before opening brace
+      // For brace languages (JavaScript), ensure space before opening brace
       if (language !== 'PYTHON') {
         trimmedLine = trimmedLine.replace(/(\S)\{/g, '$1 {');
       }

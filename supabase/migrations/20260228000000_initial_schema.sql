@@ -60,7 +60,7 @@ create table codely.sessions (
   description      text,
   instructor_id    uuid not null references codely.users(id) on delete cascade,
   language         varchar(50) not null
-                   check (language in ('JAVASCRIPT', 'PYTHON', 'CSHARP')),
+                   check (language in ('JAVASCRIPT', 'PYTHON')),
   status           varchar(50) not null default 'ACTIVE'
                    check (status in ('ACTIVE', 'PAUSED', 'ENDED')),
   max_participants integer not null default 10

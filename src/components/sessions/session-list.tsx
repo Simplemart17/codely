@@ -137,7 +137,6 @@ export function SessionList({
             <SelectItem value="all">All Languages</SelectItem>
             <SelectItem value="JAVASCRIPT">JavaScript</SelectItem>
             <SelectItem value="PYTHON">Python</SelectItem>
-            <SelectItem value="CSHARP">C#</SelectItem>
           </SelectContent>
         </Select>
 

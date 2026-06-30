@@ -31,8 +31,6 @@ export function SessionMetadata({ session, showTitle = false, compact = false }:
         return '🟨';
       case 'PYTHON':
         return '🐍';
-      case 'CSHARP':
-        return '🔷';
       default:
         return '📝';
     }

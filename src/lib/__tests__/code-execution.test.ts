@@ -3,8 +3,8 @@ import type { Language } from '@/types';
 import { runJavaScriptInBrowser } from '../execution/js-runner';
 import { runPythonInBrowser } from '../execution/py-runner';
 
-// JS and Python run in-browser via Web Workers; mock the runners so we can
-// assert dispatch without a real Worker (jsdom has none).
+// All supported languages run in-browser via Web Workers; mock the runners so
+// we can assert dispatch without a real Worker (jsdom has none).
 jest.mock('../execution/js-runner', () => ({
   runJavaScriptInBrowser: jest.fn(),
 }));
@@ -19,22 +19,17 @@ const mockRunPy = runPythonInBrowser as jest.MockedFunction<
   typeof runPythonInBrowser
 >;
 
-// Remaining (C#) execution still proxies through /api/execute.
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
-
 describe('CodeExecutionService', () => {
   let service: CodeExecutionService;
 
   beforeEach(() => {
     service = CodeExecutionService.getInstance();
-    mockFetch.mockReset();
     mockRunJs.mockReset();
     mockRunPy.mockReset();
   });
 
   describe('In-browser execution', () => {
-    it('runs JavaScript in the browser, not via the API', async () => {
+    it('runs JavaScript in the browser', async () => {
       mockRunJs.mockResolvedValueOnce({
         success: true,
         output: 'Hello, World!',
@@ -51,7 +46,7 @@ describe('CodeExecutionService', () => {
         'console.log("Hello, World!");',
         expect.any(Number)
       );
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockRunPy).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(result.output).toBe('Hello, World!');
       expect(result.streams).toEqual([
@@ -59,7 +54,7 @@ describe('CodeExecutionService', () => {
       ]);
     });
 
-    it('runs Python in the browser, not via the API', async () => {
+    it('runs Python in the browser', async () => {
       mockRunPy.mockResolvedValueOnce({
         success: true,
         output: 'Hello',
@@ -70,7 +65,7 @@ describe('CodeExecutionService', () => {
       const result = await service.executeCode('print("Hello")', 'PYTHON');
 
       expect(mockRunPy).toHaveBeenCalledWith('print("Hello")', undefined);
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockRunJs).not.toHaveBeenCalled();
       expect(result.output).toBe('Hello');
     });
 
@@ -87,7 +82,7 @@ describe('CodeExecutionService', () => {
       expect(mockRunJs).toHaveBeenCalledWith('1 + 1', 5000);
     });
 
-    it('surfaces a failed in-browser run with its captured streams', async () => {
+    it('surfaces a failed run with its captured streams', async () => {
       mockRunPy.mockResolvedValueOnce({
         success: false,
         output: 'before crash',
@@ -106,86 +101,6 @@ describe('CodeExecutionService', () => {
     });
   });
 
-  describe('API fallback (non-browser languages)', () => {
-    it('proxies C# to /api/execute with the mapped language id', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, output: 'Hi', executionTime: 42 }),
-      });
-
-      await service.executeCode('Console.WriteLine("Hi");', 'CSHARP');
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/execute',
-        expect.objectContaining({ method: 'POST' })
-      );
-      const body = JSON.parse(
-        (mockFetch.mock.calls[0][1] as RequestInit).body as string
-      );
-      expect(body.language).toBe('csharp');
-      expect(mockRunJs).not.toHaveBeenCalled();
-      expect(mockRunPy).not.toHaveBeenCalled();
-    });
-
-    it('forwards stdin and timeout on the API path', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, output: '42', executionTime: 1 }),
-      });
-
-      await service.executeCode('Console.ReadLine();', 'CSHARP', {
-        stdin: '42',
-        timeout: 5000,
-      });
-
-      const body = JSON.parse(
-        (mockFetch.mock.calls[0][1] as RequestInit).body as string
-      );
-      expect(body.stdin).toBe('42');
-      expect(body.timeout).toBe(5000);
-    });
-
-    it('forwards memoryLimit on the API path', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, output: '', executionTime: 1 }),
-      });
-
-      await service.executeCode('Console.WriteLine("x");', 'CSHARP', {
-        memoryLimit: 128,
-      });
-
-      const body = JSON.parse(
-        (mockFetch.mock.calls[0][1] as RequestInit).body as string
-      );
-      expect(body.memoryLimit).toBe(128);
-    });
-
-    it('handles API error responses', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: async () => ({ error: 'Execution engine error' }),
-      });
-
-      const result = await service.executeCode(
-        'Console.WriteLine("x");',
-        'CSHARP'
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Execution engine error');
-    });
-
-    it('propagates network errors', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-      await expect(
-        service.executeCode('Console.WriteLine("x");', 'CSHARP')
-      ).rejects.toThrow('Network error');
-    });
-  });
-
   describe('Input validation', () => {
     it('should handle empty code', async () => {
       const result = await service.executeCode('', 'JAVASCRIPT');
@@ -193,7 +108,6 @@ describe('CodeExecutionService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
       expect(mockRunJs).not.toHaveBeenCalled();
-      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle whitespace-only code', async () => {
@@ -202,7 +116,6 @@ describe('CodeExecutionService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
       expect(mockRunJs).not.toHaveBeenCalled();
-      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle unsupported language', async () => {
@@ -215,7 +128,6 @@ describe('CodeExecutionService', () => {
       expect(result.error).toContain('Unsupported language');
       expect(mockRunJs).not.toHaveBeenCalled();
       expect(mockRunPy).not.toHaveBeenCalled();
-      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

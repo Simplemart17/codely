@@ -61,7 +61,7 @@ npm run format:check   # Prettier check formatting
 **Middleware** (`middleware.ts`): Supabase SSR middleware for session refresh. Runs on all routes except static assets.
 
 ### Type System
-All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON, CSHARP), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase.
+All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase.
 
 ### Design System
 - shadcn/ui components in `src/components/ui/` (button, card, badge, input, select, dialog, tabs, sidebar, etc.)
