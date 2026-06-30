@@ -36,7 +36,7 @@ begin
     crypt(v_password, gen_salt('bf')),
     now(), now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    jsonb_build_object('name', v_name),
+    jsonb_build_object('name', v_name, 'role', 'INSTRUCTOR'),
     '', '', '', ''
   );
 

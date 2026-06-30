@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Interactive Online Coding Education Platform",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -p 3005",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ./src",
@@ -19,7 +19,7 @@
     "analyze": "ANALYZE=true npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "yjs-server": "node server/yjs-server.mjs",
+    "yjs-server": "PORT=3006 node server/yjs-server.mjs",
     "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\"",
     "pyodide:copy": "node scripts/copy-pyodide.mjs",
     "postinstall": "node scripts/copy-pyodide.mjs"

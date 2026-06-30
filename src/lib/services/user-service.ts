@@ -244,22 +244,18 @@ export class UserService {
       const existingUser = await this.getUserById(data.id);
 
       if (existingUser) {
-        // Update existing user with new data.
-        // Also sync the role from auth metadata if it differs from DB,
-        // to fix any prior role mismatches (e.g., lowercase values).
-        const updateData: UpdateUserData = {
+        // Update existing user with new data — but NEVER touch the role here.
+        // The DB row is the source of truth for role (it drives RLS and the
+        // instructor/learner dashboards). This method runs on every dashboard
+        // load with a role derived from auth metadata, which defaults to
+        // 'LEARNER' when absent — so syncing it would silently downgrade
+        // instructors on login. Role changes go through updateUser / an
+        // explicit admin action, not this implicit login-time upsert.
+        return this.updateUser(data.id, {
           name: data.name,
           avatar: data.avatar,
           preferences: data.preferences,
-        };
-        if (
-          data.role &&
-          data.role !== existingUser.role &&
-          ['INSTRUCTOR', 'LEARNER'].includes(data.role)
-        ) {
-          updateData.role = data.role;
-        }
-        return this.updateUser(data.id, updateData);
+        });
       } else {
         // Create new user — handle race condition where concurrent
         // requests both see no user and try to create simultaneously
