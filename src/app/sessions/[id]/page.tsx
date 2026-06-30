@@ -24,6 +24,7 @@ import {
   Play,
   LogOut,
   Square,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,6 +60,7 @@ export default function SessionDetailPage() {
 
   const [isJoining, setIsJoining] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  const [isReopening, setIsReopening] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -99,6 +101,20 @@ export default function SessionDetailPage() {
       toast.error('Failed to end session');
     } finally {
       setIsEnding(false);
+    }
+  };
+
+  const handleReopenSession = async () => {
+    if (!user || !sessionId) return;
+    setIsReopening(true);
+    try {
+      await updateSession(sessionId, { status: 'ACTIVE' });
+      toast.success('Session reopened successfully');
+    } catch (err) {
+      console.error('Failed to reopen session:', err);
+      toast.error('Failed to reopen session');
+    } finally {
+      setIsReopening(false);
     }
   };
 
@@ -173,7 +189,7 @@ export default function SessionDetailPage() {
                   <Code2 className="mr-2 h-4 w-4" />
                   Open Editor
                 </Button>
-                {currentSession.status === 'ACTIVE' && (
+                {currentSession.status === 'ACTIVE' ? (
                   <Button
                     variant="destructive"
                     onClick={handleEndSession}
@@ -181,6 +197,15 @@ export default function SessionDetailPage() {
                   >
                     <Square className="mr-2 h-4 w-4" />
                     {isEnding ? 'Ending...' : 'End Session'}
+                  </Button>
+                ) : (
+                  <Button onClick={handleReopenSession} disabled={isReopening}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    {isReopening
+                      ? 'Reopening...'
+                      : currentSession.status === 'ENDED'
+                        ? 'Reopen Session'
+                        : 'Resume Session'}
                   </Button>
                 )}
               </>

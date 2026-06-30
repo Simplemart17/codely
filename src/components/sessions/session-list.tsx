@@ -212,7 +212,11 @@ export function SessionList({
                   <div className="pt-3 border-t">
                     <Link href={`/sessions/${session.id}`}>
                       <Button className="w-full" size="sm">
-                        {session.instructorId === user?.id ? 'Manage Session' : 'Join Session'}
+                        {session.instructorId === user?.id
+                          ? 'Manage Session'
+                          : session.status === 'ACTIVE'
+                            ? 'Join Session'
+                            : 'View'}
                       </Button>
                     </Link>
                   </div>
