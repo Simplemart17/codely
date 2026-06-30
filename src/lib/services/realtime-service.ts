@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { DB_SCHEMA } from '@/lib/supabase/constants';
+import type { OutputStream } from '@/lib/code-execution';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface CodeChangeEvent {
@@ -47,6 +48,17 @@ export interface UserLeftEvent {
 export interface SessionStatusChangeEvent {
   sessionId: string;
   status: string;
+}
+
+export interface ExecutionOutputEvent {
+  sessionId: string;
+  userId: string;
+  userName: string;
+  language: string;
+  success: boolean;
+  streams: OutputStream[];
+  error?: string;
+  timestamp: Date;
 }
 
 /**
@@ -121,6 +133,15 @@ export class RealtimeService {
       channel.on('broadcast', { event: 'user-presence' }, ({ payload }) => {
         if (payload.userId !== this.userId) {
           this.triggerUserPresence(payload as UserPresenceEvent);
+        }
+      });
+
+      // Execution output is broadcast so every participant sees the same run
+      // result. The runner executes once on the clicker's machine; everyone
+      // else just renders the broadcast (no double execution).
+      channel.on('broadcast', { event: 'execution-output' }, ({ payload }) => {
+        if (payload.userId !== this.userId) {
+          this.triggerExecutionOutput(payload as ExecutionOutputEvent);
         }
       });
 
@@ -300,6 +321,39 @@ export class RealtimeService {
   }
 
   /**
+   * Broadcast the result of a code run to other participants so they see the
+   * same output without re-executing the code.
+   */
+  async sendExecutionOutput(result: {
+    language: string;
+    success: boolean;
+    streams: OutputStream[];
+    error?: string;
+  }): Promise<void> {
+    if (!this.sessionId || !this.userId || !this.userName) return;
+
+    const channel = this.channels.get(this.sessionId);
+    if (!channel) return;
+
+    const event: ExecutionOutputEvent = {
+      sessionId: this.sessionId,
+      userId: this.userId,
+      userName: this.userName,
+      language: result.language,
+      success: result.success,
+      streams: result.streams,
+      error: result.error,
+      timestamp: new Date(),
+    };
+
+    await channel.send({
+      type: 'broadcast',
+      event: 'execution-output',
+      payload: event,
+    });
+  }
+
+  /**
    * Update participant status in database
    */
   private async updateParticipantStatus(sessionId: string, userId: string, isActive: boolean): Promise<void> {
@@ -358,6 +412,7 @@ export class RealtimeService {
   private userJoinedCallbacks: ((event: UserJoinedEvent) => void)[] = [];
   private userLeftCallbacks: ((event: UserLeftEvent) => void)[] = [];
   private sessionStatusChangeCallbacks: ((event: SessionStatusChangeEvent) => void)[] = [];
+  private executionOutputCallbacks: ((event: ExecutionOutputEvent) => void)[] = [];
 
   // Event listener methods
   onCodeChange(callback: (event: CodeChangeEvent) => void): void {
@@ -384,6 +439,10 @@ export class RealtimeService {
     this.sessionStatusChangeCallbacks.push(callback);
   }
 
+  onExecutionOutput(callback: (event: ExecutionOutputEvent) => void): void {
+    this.executionOutputCallbacks.push(callback);
+  }
+
   // Event trigger methods
   private triggerCodeChange(event: CodeChangeEvent): void {
     this.codeChangeCallbacks.forEach(callback => callback(event));
@@ -407,6 +466,10 @@ export class RealtimeService {
 
   private triggerSessionStatusChange(event: SessionStatusChangeEvent): void {
     this.sessionStatusChangeCallbacks.forEach(callback => callback(event));
+  }
+
+  private triggerExecutionOutput(event: ExecutionOutputEvent): void {
+    this.executionOutputCallbacks.forEach(callback => callback(event));
   }
 
   // Remove event listeners
@@ -473,6 +536,17 @@ export class RealtimeService {
       }
     } else {
       this.sessionStatusChangeCallbacks = [];
+    }
+  }
+
+  offExecutionOutput(callback?: (event: ExecutionOutputEvent) => void): void {
+    if (callback) {
+      const index = this.executionOutputCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.executionOutputCallbacks.splice(index, 1);
+      }
+    } else {
+      this.executionOutputCallbacks = [];
     }
   }
 

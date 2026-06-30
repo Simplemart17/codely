@@ -1,8 +1,20 @@
 import type { Language } from '@/types';
 
+/** A single line of program output, tagged with its stream. */
+export interface OutputStream {
+  type: 'stdout' | 'stderr';
+  content: string;
+}
+
 export interface ExecutionResult {
   success: boolean;
   output: string;
+  /**
+   * Ordered, level-tagged output lines, when the backend can distinguish
+   * stdout from stderr (the in-browser runner). Absent for backends that only
+   * return a single blob — render `output` as stdout in that case.
+   */
+  streams?: OutputStream[];
   error?: string;
   executionTime: number;
   memoryUsage?: number;
@@ -62,6 +74,13 @@ export class CodeExecutionService {
         error: `Unsupported language: ${language}`,
         executionTime: Date.now() - startTime,
       };
+    }
+
+    // JavaScript executes fully in the browser (Web Worker) — no external
+    // service. Other languages still proxy to the `/api/execute` route.
+    if (language === 'JAVASCRIPT' && typeof window !== 'undefined') {
+      const { runJavaScriptInBrowser } = await import('./execution/js-runner');
+      return runJavaScriptInBrowser(trimmed, options.timeout ?? 10000);
     }
 
     const response = await fetch('/api/execute', {

@@ -7,6 +7,7 @@ import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
 import { ConnectionStatus } from './connection-status';
 import { codeExecutionService } from '@/lib/code-execution';
+import type { OutputStream } from '@/lib/code-execution';
 import { createClient } from '@/lib/supabase/client';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
@@ -16,6 +17,7 @@ import { RealtimeService } from '@/lib/services/realtime-service';
 import type {
   LanguageChangeEvent,
   SessionStatusChangeEvent,
+  ExecutionOutputEvent,
 } from '@/lib/services/realtime-service';
 import type { Language } from '@/types';
 
@@ -113,8 +115,28 @@ export function CodingInterface({
       }
     };
 
+    // Render runs triggered by other participants. The clicker executes the
+    // code; everyone else just shows the broadcast result.
+    const handleIncomingExecution = (event: ExecutionOutputEvent) => {
+      setOutput((prev) => {
+        const next = [
+          ...prev,
+          createOutputLine(
+            'info',
+            `▶ ${event.userName} ran ${event.language.toLowerCase()} code`
+          ),
+          ...event.streams.map((s) => createOutputLine(s.type, s.content)),
+        ];
+        if (event.error) {
+          next.push(createOutputLine('error', event.error));
+        }
+        return next;
+      });
+    };
+
     realtimeService.onLanguageChange(handleIncomingLanguageChange);
     realtimeService.onSessionStatusChange(handleSessionStatusChange);
+    realtimeService.onExecutionOutput(handleIncomingExecution);
     realtimeService.joinSession(sessionId, userId, userName);
 
     return () => {
@@ -220,10 +242,21 @@ export function CodingInterface({
     try {
       const result = await codeExecutionService.executeCode(code, language);
 
+      // Backends that don't separate streams (the /api/execute path) return a
+      // single `output` blob — treat it as stdout.
+      const streams: OutputStream[] =
+        result.streams ??
+        (result.output ? [{ type: 'stdout', content: result.output }] : []);
+      const outputLines = streams.map((s) =>
+        createOutputLine(s.type, s.content)
+      );
+
+      // Always render captured output — including on failure, where partial
+      // stdout before an error is common and must not be dropped.
       if (result.success) {
         setOutput((prev) => [
           ...prev,
-          createOutputLine('stdout', result.output),
+          ...outputLines,
           createOutputLine(
             'info',
             `Execution completed in ${result.executionTime}ms`
@@ -232,9 +265,18 @@ export function CodingInterface({
       } else {
         setOutput((prev) => [
           ...prev,
+          ...outputLines,
           createOutputLine('error', result.error || 'Execution failed'),
         ]);
       }
+
+      // Share the run with other participants so they see the same output.
+      realtimeServiceRef.current?.sendExecutionOutput({
+        language,
+        success: result.success,
+        streams,
+        error: result.error,
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unknown error';
