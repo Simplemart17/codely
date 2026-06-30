@@ -6,15 +6,20 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Publishable key (new Supabase key model); falls back to the legacy anon key
+  // during migration. Both are low-privilege and respect RLS. Drop the fallback
+  // once the publishable key is set in every environment.
+  const supabasePublishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabasePublishableKey) {
     throw new Error('Missing Supabase environment variables');
   }
 
   return createServerClient(
     supabaseUrl,
-    supabaseAnonKey,
+    supabasePublishableKey,
     {
       db: { schema: DB_SCHEMA },
       cookies: {
