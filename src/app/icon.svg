@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Codely">
+  <defs>
+    <linearGradient id="codelyBg" x1="256" y1="24" x2="256" y2="488" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b8bff"/>
+      <stop offset="1" stop-color="#1447e6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#codelyBg)"/>
+  <g transform="translate(256 256) scale(12.5) translate(-12 -12)"
+     fill="none" stroke="#ffffff" stroke-width="3"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 16l4-4-4-4"/>
+    <path d="M6 8l-4 4 4 4"/>
+    <path d="M14.5 4l-5 16"/>
+  </g>
+</svg>
