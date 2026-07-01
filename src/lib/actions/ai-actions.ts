@@ -16,6 +16,9 @@ const InputSchema = z.object({
   topic: z.string().trim().min(1).max(200),
   language: z.enum(['JAVASCRIPT', 'PYTHON']),
   code: z.string().max(20000).optional(),
+  // When true, bypass the cache and overwrite any stored notes with a fresh
+  // generation. Set by the panel's explicit "Regenerate" action.
+  regenerate: z.boolean().optional(),
 });
 
 export interface GenerateLessonNotesInput {
@@ -23,6 +26,7 @@ export interface GenerateLessonNotesInput {
   topic: string;
   language: Language;
   code?: string;
+  regenerate?: boolean;
 }
 
 /**
@@ -41,7 +45,7 @@ export async function generateLessonNotes(
   if (!parsed.success) {
     return { success: false, error: 'Invalid input' };
   }
-  const { sessionId, topic, language, code } = parsed.data;
+  const { sessionId, topic, language, code, regenerate } = parsed.data;
 
   // Server-side authorization — the client role is not trusted.
   let user;
@@ -56,16 +60,19 @@ export async function generateLessonNotes(
 
   const supabase = await createClient();
 
-  // Cache: generate once per (session, topic, language).
-  const { data: cached } = await supabase
-    .from('instructor_notes')
-    .select('content')
-    .eq('session_id', sessionId)
-    .eq('topic', topic)
-    .eq('language', language)
-    .maybeSingle();
-  if (cached?.content) {
-    return { success: true, data: cached.content as LessonNotes };
+  // Cache: generate once per (session, topic, language). Skipped on an explicit
+  // regenerate so the instructor can force a fresh set of notes.
+  if (!regenerate) {
+    const { data: cached } = await supabase
+      .from('instructor_notes')
+      .select('content')
+      .eq('session_id', sessionId)
+      .eq('topic', topic)
+      .eq('language', language)
+      .maybeSingle();
+    if (cached?.content) {
+      return { success: true, data: cached.content as LessonNotes };
+    }
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -81,22 +88,41 @@ export async function generateLessonNotes(
     const message = await client.messages.parse({
       model: MODEL,
       // Generous budget: adaptive thinking shares this with the structured
-      // output, so too low a cap truncates the JSON and fails parsing.
-      max_tokens: 16000,
+      // output, and comprehensive notes with multiple code examples are large,
+      // so too low a cap truncates the JSON and fails parsing. The SDK scales
+      // the request timeout for large max_tokens on non-streaming requests.
+      max_tokens: 24000,
       thinking: { type: 'adaptive' },
       system:
-        'You are an expert programming instructor writing PRIVATE teaching notes ' +
-        'for an instructor — these notes are never shown to learners. Be specific, ' +
-        'practical, and pedagogically sound, tailoring the guidance to the topic, ' +
-        'language, and the current code in the session.',
+        'You are an expert programming instructor authoring PRIVATE, in-depth ' +
+        'teaching notes for a fellow instructor — these are never shown to ' +
+        'learners. Produce RICH, COMPREHENSIVE, pedagogically sound notes ' +
+        'tailored to the topic, the language, and the current code in the ' +
+        'session.\n\n' +
+        'Requirements:\n' +
+        `- Write all code in ${language} — correct, idiomatic, and RUNNABLE on ` +
+        'this platform as-is (JavaScript executes in a sandbox; Python runs via ' +
+        'Pyodide).\n' +
+        '- EVERY key concept must include a short, well-formatted code example ' +
+        'that illustrates it.\n' +
+        '- Provide 2-4 fully worked code examples that build from simple to more ' +
+        'advanced, each with a step-by-step walkthrough and the expected output.\n' +
+        '- Code fields must contain RAW source only — correct indentation, no ' +
+        'markdown code fences, no language tags.\n' +
+        '- Be thorough and specific: concrete talking points, real learner ' +
+        'mistakes, and a teachable session flow. Prefer depth over brevity.',
       messages: [
         {
           role: 'user',
           content:
             `Topic: ${topic}\nLanguage: ${language}\n\n` +
             (code?.trim()
-              ? `Current code in the session:\n\`\`\`${language.toLowerCase()}\n${code}\n\`\`\``
-              : 'No code in the session yet.'),
+              ? "The instructor's current editor code (use it as context; " +
+                'reference or build on it where helpful):\n' +
+                `\`\`\`${language.toLowerCase()}\n${code}\n\`\`\``
+              : 'The editor is currently empty — design the lesson from the ' +
+                'topic.') +
+            '\n\nWrite comprehensive private teaching notes for this lesson.',
         },
       ],
       output_config: { format: zodOutputFormat(LessonNotesSchema) },
@@ -124,10 +150,11 @@ export async function generateLessonNotes(
     };
   }
 
-  // Persist as the cache for this (session, topic, language). Best-effort —
-  // a concurrent generation may have inserted first (unique constraint), which
-  // is fine: the notes were still produced. RLS independently enforces that
-  // only the instructor can write/read this row.
+  // Persist as the cache for this (session, topic, language). Best-effort — RLS
+  // independently enforces that only the instructor can write/read this row.
+  // On a normal generation we keep any row a concurrent request inserted first
+  // (ignoreDuplicates); on an explicit regenerate we OVERWRITE the stored notes
+  // with the fresh set.
   const { error: upsertError } = await supabase.from('instructor_notes').upsert(
     {
       session_id: sessionId,
@@ -137,7 +164,7 @@ export async function generateLessonNotes(
       model: MODEL,
       created_by: user.id,
     },
-    { onConflict: 'session_id,topic,language', ignoreDuplicates: true }
+    { onConflict: 'session_id,topic,language', ignoreDuplicates: !regenerate }
   );
   if (upsertError) {
     console.error('Failed to cache lesson notes:', upsertError.message);

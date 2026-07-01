@@ -16,6 +16,10 @@ import {
   AlertTriangle,
   ListOrdered,
   MessageCircleQuestion,
+  GraduationCap,
+  Code2,
+  Copy,
+  Check,
   Loader2,
   Sparkles,
   X,
@@ -59,12 +63,70 @@ function Section({
   );
 }
 
-function NotesView({ notes }: { notes: LessonNotes }) {
+function CodeBlock({ code, language }: { code: string; language: Language }) {
+  const [copied, setCopied] = useState(false);
+  const label = language === 'PYTHON' ? 'python' : 'javascript';
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable — no-op.
+    }
+  };
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-muted/40">
+      <div className="flex items-center justify-between border-b border-border bg-muted px-2 py-1">
+        <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 text-xs leading-relaxed">
+        <code className="font-mono text-foreground">
+          {code.replace(/\s+$/, '')}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+function NotesView({
+  notes,
+  language,
+}: {
+  notes: LessonNotes;
+  language: Language;
+}) {
+  // Older cached notes predate some fields — guard every optional array/string.
+  const prerequisites = notes.prerequisites ?? [];
+  const codeExamples = notes.codeExamples ?? [];
+
   return (
     <div className="space-y-6">
       <Section icon={BookOpen} title="Overview">
         <p className="text-foreground">{notes.overview}</p>
       </Section>
+
+      {prerequisites.length > 0 && (
+        <Section icon={GraduationCap} title="Prerequisites">
+          <ul className="list-disc space-y-1 pl-5 text-foreground marker:text-primary">
+            {prerequisites.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <Section icon={Target} title="Objectives">
         <ul className="list-disc space-y-1 pl-5 text-foreground marker:text-primary">
@@ -79,11 +141,16 @@ function NotesView({ notes }: { notes: LessonNotes }) {
           {notes.keyConcepts.map((c, i) => (
             <div
               key={i}
-              className="rounded-lg border border-border bg-muted/30 p-3"
+              className="space-y-2 rounded-lg border border-border bg-muted/30 p-3"
             >
-              <p className="font-medium text-foreground">{c.concept}</p>
-              <p className="mt-0.5 text-muted-foreground">{c.explanation}</p>
-              <p className="mt-2 flex items-start gap-1.5 text-xs italic text-primary">
+              <div>
+                <p className="font-medium text-foreground">{c.concept}</p>
+                <p className="mt-0.5 text-muted-foreground">{c.explanation}</p>
+              </div>
+              {c.codeExample?.trim() && (
+                <CodeBlock code={c.codeExample} language={language} />
+              )}
+              <p className="flex items-start gap-1.5 text-xs italic text-primary">
                 <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
                 <span>{c.instructorTalkingPoint}</span>
               </p>
@@ -92,22 +159,65 @@ function NotesView({ notes }: { notes: LessonNotes }) {
         </div>
       </Section>
 
+      {codeExamples.length > 0 && (
+        <Section icon={Code2} title="Worked Examples">
+          <div className="space-y-3">
+            {codeExamples.map((ex, i) => (
+              <div
+                key={i}
+                className="space-y-2 rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <div>
+                  <p className="font-medium text-foreground">{ex.title}</p>
+                  {ex.description && (
+                    <p className="mt-0.5 text-muted-foreground">
+                      {ex.description}
+                    </p>
+                  )}
+                </div>
+                <CodeBlock code={ex.code} language={language} />
+                {ex.walkthrough && (
+                  <p className="text-muted-foreground">{ex.walkthrough}</p>
+                )}
+                {ex.expectedOutput?.trim() && (
+                  <div className="text-xs">
+                    <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                      Output
+                    </span>
+                    <pre className="mt-1 overflow-x-auto rounded-md border border-border bg-background p-2 font-mono text-foreground">
+                      {ex.expectedOutput.replace(/\s+$/, '')}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section
         icon={AlertTriangle}
         title="Common Mistakes"
         accent="text-destructive"
       >
-        <ul className="space-y-1.5">
+        <ul className="space-y-3">
           {notes.commonMistakes.map((m, i) => (
-            <li key={i} className="flex gap-2 text-foreground">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-destructive" />
-              <span>
-                <span className="font-medium">{m.mistake}</span>
-                <span className="text-muted-foreground">
-                  {' '}
-                  — {m.howToAddress}
+            <li key={i} className="space-y-1.5">
+              <div className="flex gap-2 text-foreground">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-destructive" />
+                <span>
+                  <span className="font-medium">{m.mistake}</span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    — {m.howToAddress}
+                  </span>
                 </span>
-              </span>
+              </div>
+              {m.codeExample?.trim() && (
+                <div className="pl-3.5">
+                  <CodeBlock code={m.codeExample} language={language} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -173,6 +283,9 @@ export function InstructorNotesPanel({
         topic: trimmed,
         language,
         code: getCode(),
+        // If notes already exist, an explicit click means "regenerate" — force
+        // a fresh generation that overwrites the cached copy.
+        regenerate: Boolean(notes),
       });
       if (result.success) {
         setNotes(result.data);
@@ -251,7 +364,7 @@ export function InstructorNotesPanel({
             </div>
           </div>
         ) : notes ? (
-          <NotesView notes={notes} />
+          <NotesView notes={notes} language={language} />
         ) : (
           <div className="flex h-full items-center justify-center text-center text-muted-foreground">
             <div className="max-w-xs">
