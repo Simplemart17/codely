@@ -51,8 +51,16 @@ const nextConfig = {
         source: '/_next/static/(.*)',
         headers: [
           {
+            // Production build artifacts are content-hashed and safe to cache
+            // forever. In dev, Turbopack reuses chunk URLs across edits, so
+            // `immutable` makes the browser serve stale JS on every reload
+            // (changes only appear via HMR or a hard refresh). Disable caching
+            // in dev so a normal reload always gets fresh code.
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value:
+              process.env.NODE_ENV === 'production'
+                ? 'public, max-age=31536000, immutable'
+                : 'no-store, must-revalidate',
           },
         ],
       },

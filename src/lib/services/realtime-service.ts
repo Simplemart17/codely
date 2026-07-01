@@ -117,10 +117,12 @@ export class RealtimeService {
         }
       });
 
+      // Forward every language change (no self-filter): broadcast is
+      // `self: false`, so we never get our own, and filtering by userId would
+      // drop changes from another connection on the same account. See the
+      // execution-output handler below for the full rationale.
       channel.on('broadcast', { event: 'language-change' }, ({ payload }) => {
-        if (payload.userId !== this.userId) {
-          this.triggerLanguageChange(payload as LanguageChangeEvent);
-        }
+        this.triggerLanguageChange(payload as LanguageChangeEvent);
       });
 
       channel.on('broadcast', { event: 'user-presence' }, ({ payload }) => {
@@ -132,10 +134,16 @@ export class RealtimeService {
       // Execution output is broadcast so every participant sees the same run
       // result. The runner executes once on the clicker's machine; everyone
       // else just renders the broadcast (no double execution).
+      //
+      // No self-filter here: Supabase broadcast defaults to `self: false`, so
+      // the sender never receives its own message (it already rendered the
+      // output locally). Filtering by `payload.userId` would additionally drop
+      // runs coming from another connection signed in as the SAME user — e.g.
+      // the same account open in two tabs, or an instructor + learner sharing a
+      // login while testing — which is exactly when output failed to appear on
+      // the other side. Forward every execution-output we receive.
       channel.on('broadcast', { event: 'execution-output' }, ({ payload }) => {
-        if (payload.userId !== this.userId) {
-          this.triggerExecutionOutput(payload as ExecutionOutputEvent);
-        }
+        this.triggerExecutionOutput(payload as ExecutionOutputEvent);
       });
 
       // Subscribe to database changes for session updates

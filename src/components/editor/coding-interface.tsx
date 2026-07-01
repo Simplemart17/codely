@@ -70,6 +70,10 @@ export function CodingInterface({
 
   const editorRef = useRef<MonacoEditorType.IStandaloneCodeEditor | null>(null);
   const realtimeServiceRef = useRef<RealtimeService | null>(null);
+  // Deferred-teardown bookkeeping so a StrictMode remount reuses the live
+  // realtime channel instead of churning it (see the realtime effect below).
+  const realtimeTeardownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeKeyRef = useRef<string | null>(null);
   // Single-flight guard read synchronously, so the Ctrl+Enter command (which
   // captures `handleRun` once at editor mount and would otherwise see a stale
   // `isRunning`) can't launch overlapping runs.
@@ -106,49 +110,84 @@ export function CodingInterface({
   useEffect(() => {
     if (!sessionId || !userId || !userName) return;
 
-    const realtimeService = new RealtimeService();
-    realtimeServiceRef.current = realtimeService;
+    const desiredKey = `${sessionId}|${userId}|${userName}`;
 
-    const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
-      if (event.userId !== userId) {
+    // Cancel a teardown scheduled by a just-fired cleanup. React StrictMode
+    // remounts effects in dev (mount → unmount → mount), and the browser
+    // Supabase client is a SINGLETON with one socket. Creating a second channel
+    // for the same `session:<id>` topic makes the two race their join/leave on
+    // that socket — the first channel's leave lands after the second joins and
+    // closes it, leaving the live channel CLOSED. That silently dropped all
+    // broadcast delivery (execution output, language sync) after the first
+    // event. Reusing the existing channel across the remount avoids the churn.
+    if (realtimeTeardownRef.current) {
+      clearTimeout(realtimeTeardownRef.current);
+      realtimeTeardownRef.current = null;
+    }
+
+    // Identity genuinely changed (not a StrictMode echo) — drop the old channel.
+    if (realtimeServiceRef.current && realtimeKeyRef.current !== desiredKey) {
+      realtimeServiceRef.current.leaveSession();
+      realtimeServiceRef.current.cleanup();
+      realtimeServiceRef.current = null;
+    }
+
+    if (!realtimeServiceRef.current) {
+      realtimeKeyRef.current = desiredKey;
+      const realtimeService = new RealtimeService();
+      realtimeServiceRef.current = realtimeService;
+
+      // Apply language changes from every other connection. Supabase broadcast
+      // is `self: false`, so we never receive our own change here; filtering by
+      // userId would only drop changes from another connection on the same
+      // account (e.g. two tabs). setLanguage doesn't re-broadcast, so there's no
+      // loop.
+      const handleIncomingLanguageChange = (event: LanguageChangeEvent) => {
         setLanguage(event.language as Language);
-      }
-    };
+      };
 
-    const handleSessionStatusChange = (event: SessionStatusChangeEvent) => {
-      if (event.status === 'ENDED') {
-        onSessionEndedRef.current?.();
-      }
-    };
-
-    // Render runs triggered by other participants. The clicker executes the
-    // code; everyone else just shows the broadcast result.
-    const handleIncomingExecution = (event: ExecutionOutputEvent) => {
-      setOutput((prev) => {
-        const next = [
-          ...prev,
-          createOutputLine(
-            'info',
-            `▶ ${event.userName} ran ${event.language.toLowerCase()} code`
-          ),
-          ...event.streams.map((s) => createOutputLine(s.type, s.content)),
-        ];
-        if (event.error) {
-          next.push(createOutputLine('error', event.error));
+      const handleSessionStatusChange = (event: SessionStatusChangeEvent) => {
+        if (event.status === 'ENDED') {
+          onSessionEndedRef.current?.();
         }
-        return next;
-      });
-    };
+      };
 
-    realtimeService.onLanguageChange(handleIncomingLanguageChange);
-    realtimeService.onSessionStatusChange(handleSessionStatusChange);
-    realtimeService.onExecutionOutput(handleIncomingExecution);
-    realtimeService.joinSession(sessionId, userId, userName);
+      // Render runs triggered by other participants. The clicker executes the
+      // code; everyone else just shows the broadcast result.
+      const handleIncomingExecution = (event: ExecutionOutputEvent) => {
+        setOutput((prev) => {
+          const next = [
+            ...prev,
+            createOutputLine(
+              'info',
+              `▶ ${event.userName} ran ${event.language.toLowerCase()} code`
+            ),
+            ...event.streams.map((s) => createOutputLine(s.type, s.content)),
+          ];
+          if (event.error) {
+            next.push(createOutputLine('error', event.error));
+          }
+          return next;
+        });
+      };
+
+      realtimeService.onLanguageChange(handleIncomingLanguageChange);
+      realtimeService.onSessionStatusChange(handleSessionStatusChange);
+      realtimeService.onExecutionOutput(handleIncomingExecution);
+      realtimeService.joinSession(sessionId, userId, userName);
+    }
 
     return () => {
-      realtimeService.leaveSession();
-      realtimeService.cleanup();
-      realtimeServiceRef.current = null;
+      // Defer teardown one tick: a synchronous StrictMode remount cancels it
+      // above (reusing the channel); a real unmount lets it run.
+      realtimeTeardownRef.current = setTimeout(() => {
+        realtimeTeardownRef.current = null;
+        realtimeKeyRef.current = null;
+        const svc = realtimeServiceRef.current;
+        realtimeServiceRef.current = null;
+        svc?.leaveSession();
+        svc?.cleanup();
+      }, 0);
     };
   }, [sessionId, userId, userName]);
 
