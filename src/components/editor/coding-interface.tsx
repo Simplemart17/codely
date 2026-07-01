@@ -7,11 +7,17 @@ import { EditorToolbar } from './editor-toolbar';
 import { OutputPanel, createOutputLine } from './output-panel';
 import { ConnectionStatus } from './connection-status';
 import { InstructorNotesPanel } from './instructor-notes-panel';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from '@/components/ui/resizable';
 import { codeExecutionService } from '@/lib/code-execution';
 import type { OutputStream } from '@/lib/code-execution';
 import { createClient } from '@/lib/supabase/client';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
+import { useEditorLayoutStore } from '@/stores/editor-layout-store';
 import { useCollaboration } from '@/hooks/use-collaboration';
 import { useRemoteCursors } from '@/hooks/use-remote-cursors';
 import { RealtimeService } from '@/lib/services/realtime-service';
@@ -54,6 +60,7 @@ export function CodingInterface({
 }: CodingInterfaceProps) {
   const { user } = useUserStore();
   const { updateSession } = useSessionStore();
+  const { consolePosition } = useEditorLayoutStore();
 
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [output, setOutput] = useState<
@@ -497,42 +504,65 @@ export function CodingInterface({
         </div>
       )}
 
-      {/* Main content area */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Code Editor */}
-        <div className="min-h-0 flex-1">
-          <MonacoEditor
-            value={localCode}
-            onChange={handleCodeChange}
-            language={language}
-            readOnly={readOnly}
-            height="100%"
-            onMount={handleEditorMount}
-            collaborative={isCollaborative}
-          />
-        </div>
-
-        {/* Output Panel */}
-        <div className="w-full border-t border-border lg:w-96 lg:border-l lg:border-t-0">
-          <OutputPanel
-            output={output}
-            isRunning={isRunning}
-            onClear={handleClearOutput}
-            height="100%"
-          />
-        </div>
-
-        {/* Instructor Notes — instructor-only, private (never broadcast) */}
-        {sessionId && isInstructor && showNotes && (
-          <div className="w-full border-t border-border lg:w-96 lg:border-l lg:border-t-0">
-            <InstructorNotesPanel
-              sessionId={sessionId}
+      {/* Main content area — editor + resizable, repositionable output console.
+          The console docks to the right (horizontal split) or the bottom
+          (vertical split) based on the persisted `consolePosition`. Direction is
+          toggled live (no remount) so the Monaco/CRDT instance is never torn
+          down. Drag the handle to resize; drag it fully closed to hide. */}
+      <div className="min-h-0 flex-1 p-2">
+        <ResizablePanelGroup
+          direction={consolePosition === 'bottom' ? 'vertical' : 'horizontal'}
+          autoSaveId="codely-editor-console"
+        >
+          {/* Code Editor */}
+          <ResizablePanel
+            id="editor"
+            order={1}
+            defaultSize={62}
+            minSize={25}
+            className="min-h-0"
+          >
+            <MonacoEditor
+              value={localCode}
+              onChange={handleCodeChange}
               language={language}
-              getCode={getCurrentCode}
+              readOnly={readOnly}
+              height="100%"
+              onMount={handleEditorMount}
+              collaborative={isCollaborative}
             />
-          </div>
-        )}
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Output Console — always docked (never collapses to 0) so its
+              header controls, including the dock-position toggle, stay reachable. */}
+          <ResizablePanel
+            id="console"
+            order={2}
+            defaultSize={38}
+            minSize={15}
+            className="min-h-0 overflow-hidden rounded-lg border border-border"
+          >
+            <OutputPanel
+              output={output}
+              isRunning={isRunning}
+              onClear={handleClearOutput}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
+
+      {/* Instructor Notes — instructor-only, private slide-over (never broadcast) */}
+      {sessionId && isInstructor && (
+        <InstructorNotesPanel
+          sessionId={sessionId}
+          language={language}
+          getCode={getCurrentCode}
+          open={showNotes}
+          onOpenChange={setShowNotes}
+        />
+      )}
 
       {/* Status Bar */}
       <div className="flex items-center justify-between border-t border-border bg-muted px-4 py-2 text-xs text-muted-foreground">

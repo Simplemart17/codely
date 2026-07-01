@@ -1,9 +1,33 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
+import {
+  NotebookPen,
+  Lock,
+  BookOpen,
+  Target,
+  Lightbulb,
+  AlertTriangle,
+  ListOrdered,
+  MessageCircleQuestion,
+  Loader2,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import { generateLessonNotes, getLessonNotes } from '@/lib/actions/ai-actions';
 import type { LessonNotes } from '@/lib/ai/lesson-notes';
 import type { Language } from '@/types';
@@ -11,80 +35,101 @@ import type { Language } from '@/types';
 interface InstructorNotesPanelProps {
   sessionId: string;
   language: Language;
+  /** Controls the slide-over visibility. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   /** Pre-fills the topic field (e.g. the session title). */
   defaultTopic?: string;
   /** Returns the current editor code, sent as context for the notes. */
   getCode: () => string;
-  height?: string | number;
 }
 
 function Section({
+  icon: Icon,
   title,
+  accent = 'text-primary',
   children,
 }: {
+  icon: ComponentType<{ className?: string }>;
   title: string;
+  accent?: string;
   children: ReactNode;
 }) {
   return (
-    <div>
-      <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
+    <section className="space-y-2">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className={cn('size-3.5', accent)} />
         {title}
       </h4>
-      {children}
-    </div>
+      <div className="text-sm leading-relaxed">{children}</div>
+    </section>
   );
 }
 
 function NotesView({ notes }: { notes: LessonNotes }) {
   return (
-    <div className="space-y-4 text-sm">
-      <Section title="Overview">
+    <div className="space-y-6">
+      <Section icon={BookOpen} title="Overview">
         <p className="text-foreground">{notes.overview}</p>
       </Section>
 
-      <Section title="Objectives">
-        <ul className="list-disc space-y-0.5 pl-5 text-foreground">
+      <Section icon={Target} title="Objectives">
+        <ul className="list-disc space-y-1 pl-5 text-foreground marker:text-primary">
           {notes.objectives.map((o, i) => (
             <li key={i}>{o}</li>
           ))}
         </ul>
       </Section>
 
-      <Section title="Key Concepts">
+      <Section icon={Lightbulb} title="Key Concepts">
         <div className="space-y-2">
           {notes.keyConcepts.map((c, i) => (
-            <div key={i} className="rounded border border-border p-2">
+            <div
+              key={i}
+              className="rounded-lg border border-border bg-muted/30 p-3"
+            >
               <p className="font-medium text-foreground">{c.concept}</p>
-              <p className="text-muted-foreground">{c.explanation}</p>
-              <p className="mt-1 text-xs italic text-primary">
-                💬 {c.instructorTalkingPoint}
+              <p className="mt-0.5 text-muted-foreground">{c.explanation}</p>
+              <p className="mt-2 flex items-start gap-1.5 text-xs italic text-primary">
+                <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
+                <span>{c.instructorTalkingPoint}</span>
               </p>
             </div>
           ))}
         </div>
       </Section>
 
-      <Section title="Common Mistakes">
-        <ul className="space-y-1">
+      <Section
+        icon={AlertTriangle}
+        title="Common Mistakes"
+        accent="text-destructive"
+      >
+        <ul className="space-y-1.5">
           {notes.commonMistakes.map((m, i) => (
-            <li key={i} className="text-foreground">
-              <span className="font-medium">{m.mistake}</span>
-              <span className="text-muted-foreground"> — {m.howToAddress}</span>
+            <li key={i} className="flex gap-2 text-foreground">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-destructive" />
+              <span>
+                <span className="font-medium">{m.mistake}</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  — {m.howToAddress}
+                </span>
+              </span>
             </li>
           ))}
         </ul>
       </Section>
 
-      <Section title="Suggested Flow">
-        <ol className="list-decimal space-y-0.5 pl-5 text-foreground">
+      <Section icon={ListOrdered} title="Suggested Flow">
+        <ol className="list-decimal space-y-1 pl-5 text-foreground marker:text-primary marker:font-medium">
           {notes.suggestedFlow.map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ol>
       </Section>
 
-      <Section title="Check Questions">
-        <ul className="list-disc space-y-0.5 pl-5 text-foreground">
+      <Section icon={MessageCircleQuestion} title="Check Questions">
+        <ul className="list-disc space-y-1 pl-5 text-foreground marker:text-primary">
           {notes.checkQuestions.map((q, i) => (
             <li key={i}>{q}</li>
           ))}
@@ -97,9 +142,10 @@ function NotesView({ notes }: { notes: LessonNotes }) {
 export function InstructorNotesPanel({
   sessionId,
   language,
+  open,
+  onOpenChange,
   defaultTopic = '',
   getCode,
-  height = '100%',
 }: InstructorNotesPanelProps) {
   const [topic, setTopic] = useState(defaultTopic);
   const [notes, setNotes] = useState<LessonNotes | null>(null);
@@ -149,19 +195,28 @@ export function InstructorNotesPanel({
   };
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <span>📝</span>
-          Instructor Notes
-          <span className="text-xs font-normal text-muted-foreground">
-            (private — only you)
-          </span>
-        </CardTitle>
-      </CardHeader>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        side="right"
+        overlay={false}
+        // Pinned reference panel: keep it open while the instructor keeps
+        // coding — only the X button or the toolbar toggle closes it.
+        onInteractOutside={(e) => e.preventDefault()}
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-md lg:max-w-lg"
+      >
+        <SheetHeader className="gap-1 border-b border-border p-4">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <NotebookPen className="size-4 text-primary" />
+            Instructor Notes
+          </SheetTitle>
+          <SheetDescription className="flex items-center gap-1.5 text-xs">
+            <Lock className="size-3" />
+            Private — only visible to you
+          </SheetDescription>
+        </SheetHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-        <div className="flex gap-2">
+        {/* Topic generator */}
+        <div className="flex gap-2 border-b border-border p-4">
           <input
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -169,25 +224,33 @@ export function InstructorNotesPanel({
               if (e.key === 'Enter') handleGenerate();
             }}
             placeholder="Lesson topic (e.g. Recursion basics)"
-            className="min-w-0 flex-1 rounded border-2 border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="min-w-0 flex-1 rounded-md border-2 border-input bg-background px-3 py-1.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <Button
             size="sm"
             onClick={handleGenerate}
             disabled={isLoading || !topic.trim()}
           >
-            {isLoading ? 'Generating…' : notes ? 'Regenerate' : 'Generate'}
+            {isLoading ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-3.5" />
+                {notes ? 'Regenerate' : 'Generate'}
+              </>
+            )}
           </Button>
         </div>
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto"
-          style={{ height }}
-        >
+        {/* Scrollable notes body — always fits the viewport height */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {isLoading || !hydrated ? (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <div className="text-center">
-                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-b-2 border-primary" />
+                <Loader2 className="mx-auto size-6 animate-spin text-primary" />
                 <p className="mt-2 text-xs">
                   {isLoading ? 'Generating teaching notes…' : 'Loading…'}
                 </p>
@@ -197,18 +260,22 @@ export function InstructorNotesPanel({
             <NotesView notes={notes} />
           ) : (
             <div className="flex h-full items-center justify-center text-center text-muted-foreground">
-              <div>
-                <div className="mb-2 text-2xl">📝</div>
-                <p className="text-sm">No notes yet</p>
+              <div className="max-w-xs">
+                <NotebookPen className="mx-auto mb-3 size-8 opacity-50" />
+                <p className="text-sm font-medium text-foreground">
+                  No notes yet
+                </p>
                 <p className="mt-1 text-xs">
-                  Enter a topic and generate private teaching guidance.
+                  Enter a lesson topic above and generate private teaching
+                  guidance — talking points, common mistakes, and check
+                  questions.
                 </p>
               </div>
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </SheetContent>
+    </Sheet>
   );
 }
 

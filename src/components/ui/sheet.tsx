@@ -49,14 +49,18 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  overlay = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  /** Render the dimming backdrop. Set false for a non-modal, pinned sheet that
+   *  lets the user keep interacting with the page behind it. */
+  overlay?: boolean
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      {overlay && <SheetOverlay />}
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
