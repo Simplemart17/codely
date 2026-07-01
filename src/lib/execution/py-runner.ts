@@ -26,9 +26,14 @@ let queue: Promise<unknown> = Promise.resolve();
 
 function getWorker(): Worker {
   if (!worker) {
-    worker = new Worker(new URL('./py-worker.ts', import.meta.url), {
-      type: 'module',
-    });
+    // Pyodide REQUIRES a real module worker ("Classic web workers are not
+    // supported"). A bundled `new Worker(new URL('./x.ts', import.meta.url))`
+    // is emitted as a CLASSIC worker by Turbopack (next dev), which Pyodide
+    // rejects. So we load the worker as a static, browser-native ES module from
+    // /public — the plain string URL is left untouched by the bundler, and
+    // `{ type: 'module' }` yields a genuine module worker. See
+    // /public/pyodide-worker.mjs.
+    worker = new Worker('/pyodide-worker.mjs', { type: 'module' });
   }
   return worker;
 }
