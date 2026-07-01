@@ -12,6 +12,34 @@ import type { Language } from '@/types';
 // The promise lets us delay rendering the Editor until the loader is ready.
 let monacoLoaderReady: Promise<void> | null = null;
 if (typeof window !== 'undefined') {
+  // Monaco runs its language services in Web Workers. Without a getWorker, it
+  // warns "You must define a function MonacoEnvironment.getWorker" and falls
+  // back to running worker code on the main thread (which can freeze the UI).
+  // We only ship JavaScript/TypeScript (Python uses main-thread basic-languages),
+  // so we wire the base editor worker plus the TS worker. The
+  // `new Worker(new URL(..., import.meta.url))` form is what both Turbopack (dev)
+  // and webpack (build) resolve from the local monaco-editor package.
+  self.MonacoEnvironment = {
+    getWorker(_workerId: string, label: string) {
+      if (label === 'typescript' || label === 'javascript') {
+        return new Worker(
+          new URL(
+            'monaco-editor/esm/vs/language/typescript/ts.worker.js',
+            import.meta.url
+          ),
+          { type: 'module', name: 'ts.worker' }
+        );
+      }
+      return new Worker(
+        new URL(
+          'monaco-editor/esm/vs/editor/editor.worker.js',
+          import.meta.url
+        ),
+        { type: 'module', name: 'editor.worker' }
+      );
+    },
+  };
+
   monacoLoaderReady = import('monaco-editor').then((monaco) => {
     loader.config({ monaco });
   });

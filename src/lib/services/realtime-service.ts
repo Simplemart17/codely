@@ -86,13 +86,7 @@ export class RealtimeService {
       const channel = this.supabase.channel(channelName);
 
       // Subscribe to presence (user join/leave)
-      channel.on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        console.log('Presence sync:', state);
-      });
-
-      channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
+      channel.on('presence', { event: 'join' }, ({ newPresences }) => {
         newPresences.forEach((presence: Record<string, unknown>) => {
           if (presence.userId !== this.userId) {
             this.triggerUserJoined({
@@ -105,8 +99,7 @@ export class RealtimeService {
         });
       });
 
-      channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
+      channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
         leftPresences.forEach((presence: Record<string, unknown>) => {
           if (presence.userId !== this.userId) {
             this.triggerUserLeft({
@@ -174,17 +167,14 @@ export class RealtimeService {
           table: 'session_participants',
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log('Participant change:', payload);
-          // Handle participant join/leave from database
+        () => {
+          // Handle participant join/leave from database (no-op for now)
         }
       );
 
       // Subscribe to the channel
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to session channel');
-
           // Track presence
           await channel.track({
             userId,

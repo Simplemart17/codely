@@ -40,7 +40,9 @@ export default function RootLayout({
         >
           <TooltipProvider>
             {children}
-            <Analytics />
+            {/* debug=false silences the dev-only "[Vercel Web Analytics]"
+                console logs; analytics still no-ops in development. */}
+            <Analytics debug={false} />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>
