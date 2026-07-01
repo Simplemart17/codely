@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Yjs WebSocket collaboration server (server/yjs-server.mjs).
+# Runs as a standalone process; the browser connects to it directly over wss://
+# via its own Cloudflare Tunnel hostname (NEXT_PUBLIC_YJS_WEBSOCKET_URL).
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json* ./
+# Only runtime deps are needed. ws / y-protocols / lib0 are pulled in transitively
+# via the yjs + y-websocket dependencies. No build step, so skip lifecycle scripts.
+RUN npm ci --omit=dev --ignore-scripts
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 yjs
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY server ./server
+
+USER yjs
+
+EXPOSE 3006
+ENV PORT=3006
+
+CMD ["node", "server/yjs-server.mjs"]

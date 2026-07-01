@@ -38,8 +38,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-# ...but keep the placeholder template in version control
+# ...but keep the placeholder templates in version control
 !.env.example
+!.env.docker.example
 
 # vercel
 .vercel

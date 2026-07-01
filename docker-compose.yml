@@ -1,18 +1,63 @@
+# Production stack: Next.js app + Yjs collaboration server, exposed to the
+# internet through a dedicated Cloudflare Tunnel (no inbound ports opened).
+#
+#   docker compose --env-file .env.docker up -d --build
+#
+# The app's public config (NEXT_PUBLIC_*) is baked into the client bundle at
+# BUILD time, so changing the Supabase or Yjs URL requires a rebuild (--build),
+# not just a restart. Variables below are interpolated from .env.docker.
+
 services:
-  # Next.js Application (Development)
+  # ── Next.js app (standalone) ────────────────────────────────────────────────
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env.local
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set NEXT_PUBLIC_SUPABASE_URL in .env.docker}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.docker}
+        NEXT_PUBLIC_YJS_WEBSOCKET_URL: ${NEXT_PUBLIC_YJS_WEBSOCKET_URL:?set NEXT_PUBLIC_YJS_WEBSOCKET_URL in .env.docker}
     environment:
-      - NODE_ENV=development
-      - WATCHPACK_POLLING=true
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+      NODE_ENV: production
+      # NEXT_PUBLIC_* are also provided at runtime for server components.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_YJS_WEBSOCKET_URL: ${NEXT_PUBLIC_YJS_WEBSOCKET_URL}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    expose:
+      - "3005" # internal only — reached by cloudflared over the compose network
+    restart: unless-stopped
+
+  # ── Yjs realtime collaboration server ───────────────────────────────────────
+  yjs:
+    build:
+      context: .
+      dockerfile: Dockerfile.yjs
+    environment:
+      PORT: "3006"
+    expose:
+      - "3006"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3006/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Cloudflare Tunnel ───────────────────────────────────────────────────────
+  # Remotely-managed (token) tunnel. Create the tunnel in the Zero Trust
+  # dashboard and configure its public hostnames there (see DOCKER.md):
+  #   codely.simplemart.dev     -> http://app:3005
+  #   codely-ws.simplemart.dev  -> http://yjs:3006
+  # cloudflared shares this compose network, so it resolves app / yjs by name.
+  # The token is read from the TUNNEL_TOKEN env var (kept out of the process args).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env.docker}
+    depends_on:
+      - app
+      - yjs
+    restart: unless-stopped

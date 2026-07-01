@@ -2,9 +2,7 @@ node_modules
 .next
 .git
 .gitignore
-.env
-.env.local
-.env*.local
+.env*
 *.md
 LICENSE
 .vscode
@@ -13,10 +11,18 @@ LICENSE
 .history
 coverage
 tests
+test-results*
+playwright-report
+playwright.config.ts
 src/__tests__
 src/**/__tests__
 jest.config.mjs
-playwright.config.ts
 .husky
 .prettier*
 .eslint*
+.vercel
+supabase
+docs
+# Regenerated inside the build from node_modules (postinstall scripts)
+public/pyodide
+public/monaco
