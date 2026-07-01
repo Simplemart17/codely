@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <!-- Auto-retry: reloads periodically so users land back on the app once it's up. -->
+    <meta http-equiv="refresh" content="20" />
+    <title>Codely — We'll be right back</title>
+    <style>
+      :root {
+        --bg: oklch(0.141 0.005 285.823);
+        --card: oklch(0.21 0.006 285.885);
+        --border: oklch(1 0 0 / 8%);
+        --primary: oklch(0.623 0.214 259.815);
+        --fg: oklch(0.985 0 0);
+        --muted: oklch(0.705 0.015 286.067);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(
+            1200px 600px at 50% -10%,
+            oklch(0.623 0.214 259.815 / 12%),
+            transparent 60%
+          ),
+          var(--bg);
+        color: var(--fg);
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
+          Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 460px;
+        text-align: center;
+        padding: 48px 40px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: oklch(0.21 0.006 285.885 / 60%);
+        backdrop-filter: blur(8px);
+        box-shadow:
+          0 1px 0 oklch(1 0 0 / 6%) inset,
+          0 24px 60px -24px oklch(0 0 0 / 70%);
+      }
+      .mark {
+        display: inline-grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 24px;
+        border-radius: 16px;
+        color: var(--primary);
+        background: oklch(0.623 0.214 259.815 / 12%);
+        border: 1px solid oklch(0.623 0.214 259.815 / 30%);
+      }
+      .mark svg {
+        width: 32px;
+        height: 32px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 auto;
+        max-width: 34ch;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .dots {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 28px;
+      }
+      .dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--primary);
+        opacity: 0.35;
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      .dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.25;
+          transform: translateY(0);
+        }
+        50% {
+          opacity: 1;
+          transform: translateY(-3px);
+        }
+      }
+      .foot {
+        margin-top: 28px;
+        font-size: 12.5px;
+        color: oklch(0.705 0.015 286.067 / 70%);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dots span {
+          animation: none;
+          opacity: 0.6;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" role="alert" aria-busy="true">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6" />
+          <polyline points="8 6 2 12 8 18" />
+        </svg>
+      </div>
+      <h1>We'll be right back</h1>
+      <p>
+        Codely is undergoing brief maintenance. Your sessions and work are safe —
+        this page refreshes automatically once we're back online.
+      </p>
+      <div class="dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="foot">Codely · collaborative coding education</div>
+    </main>
+  </body>
+</html>

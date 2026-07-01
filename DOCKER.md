@@ -5,9 +5,9 @@ and exposes them to the internet through a **dedicated Cloudflare Tunnel** — n
 inbound ports are opened on your machine/router.
 
 ```
-  browser ──HTTPS──▶ codely.simplemart.dev    ─┐
-                                                ├─ Cloudflare edge ─▶ cloudflared ─▶ app:3005  (Next.js)
-  browser ──WSS───▶ codely-ws.simplemart.dev  ─┘                    (container)   ─▶ yjs:3006  (Yjs WS)
+  browser ─HTTPS─▶ codely.simplemart.dev    ─┐                    ┌─▶ web:80 (nginx) ─▶ app:3005 (Next.js)
+                                              ├─ CF edge ─▶ cloudflared ┤        └─(app down)─▶ maintenance.html (503)
+  browser ─WSS──▶ codely-ws.simplemart.dev  ─┘                    └─▶ yjs:3006 (Yjs WS)
 
   app + browser ──▶ Supabase (hosted, external)
 ```
@@ -39,12 +39,15 @@ In **Cloudflare Zero Trust → Networks → Tunnels**:
 
    | Subdomain | Domain | Service |
    |---|---|---|
-   | `codely` | `simplemart.dev` | `http://app:3005` |
+   | `codely` | `simplemart.dev` | `http://web:80` |
    | `codely-ws` | `simplemart.dev` | `http://yjs:3006` |
 
    The service hosts are the Docker Compose service names — `cloudflared` shares
    the compose network and resolves them. DNS records are created automatically.
-   WebSockets work over the `http://yjs:3006` origin with no extra settings.
+   The app hostname points at `web` (the nginx proxy), **not** the app directly,
+   so users get the maintenance page instead of a raw 502 whenever the app is
+   down (see [Maintenance page](#maintenance-page)). WebSockets work over the
+   `http://yjs:3006` origin with no extra settings.
 
 ### 2. Create `.env.docker`
 
@@ -96,9 +99,41 @@ docker compose --env-file .env.docker down                # stop
 - **No Cloudflare Access.** By design, requests are gated by the app's own
   Supabase auth. Putting Access in front of the raw Yjs WebSocket handshake
   would break the browser `wss://` connection.
-- **Ports are internal.** `app` and `yjs` use `expose` (compose network only).
-  To also reach the app on `localhost`, add `ports: ["3005:3005"]` to the `app`
-  service.
+- **Ports are internal.** `app`, `yjs`, and `web` use `expose` (compose network
+  only). To also reach the app on `localhost`, add `ports: ["8080:80"]` to the
+  `web` service.
+
+## Maintenance page
+
+The `web` service (nginx) sits between the tunnel and the app and serves
+[`maintenance/maintenance.html`](maintenance/maintenance.html) — a self-contained
+503 page that auto-refreshes — in two situations:
+
+1. **Automatic** — the app container is unreachable (during `up --build`,
+   `restart`, a crash, or slow boot). nginx can't connect to `app:3005`, so it
+   returns the maintenance page instead of a raw 502. It clears itself the moment
+   the app is serving again.
+2. **Planned** — you flip a flag file, no rebuild or restart needed:
+
+   ```bash
+   # Turn maintenance ON (takes effect immediately, per-request check)
+   docker compose --env-file .env.docker exec web touch /etc/nginx/maintenance.enabled
+
+   # Turn maintenance OFF
+   docker compose --env-file .env.docker exec web rm /etc/nginx/maintenance.enabled
+   ```
+
+   The flag lives inside the container, so it also clears on the next
+   `up`/recreate — deliberately fail-open so you can't get stuck in maintenance.
+
+To edit the look or copy, change the files under `maintenance/` and rebuild the
+`web` image (`up -d --build web`). The page is intentionally standalone (inline
+CSS, no app assets) so it renders even when the app is fully down.
+
+**Note:** this nginx page only covers the case where the app container is down
+but Docker + cloudflared are still up. For a _total_ Docker/host outage (nothing
+to serve the page locally), an edge Cloudflare Worker serves the same page from
+Cloudflare's network — see [MAINTENANCE.md](MAINTENANCE.md).
 
 ## Troubleshooting
 

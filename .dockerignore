@@ -23,6 +23,11 @@ jest.config.mjs
 .vercel
 supabase
 docs
+# Cloudflare Worker (edge maintenance proxy) — deployed via wrangler, not Docker
+worker
+wrangler.jsonc
+.wrangler
+.open-next
 # Regenerated inside the build from node_modules (postinstall scripts)
 public/pyodide
 public/monaco

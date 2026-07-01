@@ -20,6 +20,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "yjs-server": "PORT=3006 node server/yjs-server.mjs",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:check": "tsc -p worker",
     "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\"",
     "pyodide:copy": "node scripts/copy-pyodide.mjs",
     "monaco:workers": "node scripts/build-monaco-workers.mjs",
@@ -54,6 +57,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260701.1",
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
@@ -78,6 +82,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.1",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.106.0"
   }
 }
