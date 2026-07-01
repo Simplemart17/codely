@@ -34,6 +34,12 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_YJS_WEBSOCKET_URL=$NEXT_PUBLIC_YJS_WEBSOCKET_URL
 
+# Trusted origins for Next.js server actions. Baked into the standalone config at
+# build time, so it's a build arg. Comma-separated hostnames — set to the app's
+# public host when running behind a proxy/tunnel (see next.config.js).
+ARG SERVER_ACTIONS_ALLOWED_ORIGINS
+ENV SERVER_ACTIONS_ALLOWED_ORIGINS=$SERVER_ACTIONS_ALLOWED_ORIGINS
+
 # Regenerate the gitignored, self-hosted runtime assets that postinstall
 # normally produces (public/pyodide + public/monaco) from node_modules.
 RUN node scripts/copy-pyodide.mjs && node scripts/build-monaco-workers.mjs
@@ -47,7 +53,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 nextjs
+  && adduser --system --uid 1001 --ingroup nodejs nextjs
 
 COPY --from=builder /app/public ./public
 

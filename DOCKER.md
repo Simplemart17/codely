@@ -57,6 +57,7 @@ Fill it in:
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — from your Supabase project (copy from your existing `.env`)
 - `NEXT_PUBLIC_YJS_WEBSOCKET_URL=wss://codely-ws.simplemart.dev`
 - `ANTHROPIC_API_KEY` — for AI lesson notes (copy from `.env`)
+- `SERVER_ACTIONS_ALLOWED_ORIGINS=codely.simplemart.dev` — trusted origin(s) for server actions behind the tunnel
 - `TUNNEL_TOKEN` — the token from step 1
 
 If you use different subdomains, update the **Public Hostnames** in the dashboard
@@ -103,9 +104,10 @@ docker compose --env-file .env.docker down                # stop
 
 - **Server Action blocked / "Invalid Server Actions request"**: the Host header
   is being rewritten. In the tunnel's Public Hostname settings, leave **HTTP Host
-  Header** blank (do not override it). As a fallback, set
-  `experimental.serverActions.allowedOrigins: ['codely.simplemart.dev']` in
-  `next.config.js`.
+  Header** blank (do not override it). Also ensure
+  `SERVER_ACTIONS_ALLOWED_ORIGINS` in `.env.docker` lists the app's public host
+  (this feeds `experimental.serverActions.allowedOrigins` in `next.config.js`),
+  then rebuild — it's baked at build time.
 - **Collaboration/cursors don't sync**: check `NEXT_PUBLIC_YJS_WEBSOCKET_URL` is
   `wss://` (not `ws://`) and matches the `codely-ws` Public Hostname; confirm the
   `yjs` container is healthy (`docker compose ... ps`).

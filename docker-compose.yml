@@ -17,6 +17,7 @@ services:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set NEXT_PUBLIC_SUPABASE_URL in .env.docker}
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.docker}
         NEXT_PUBLIC_YJS_WEBSOCKET_URL: ${NEXT_PUBLIC_YJS_WEBSOCKET_URL:?set NEXT_PUBLIC_YJS_WEBSOCKET_URL in .env.docker}
+        SERVER_ACTIONS_ALLOWED_ORIGINS: ${SERVER_ACTIONS_ALLOWED_ORIGINS:-}
     environment:
       NODE_ENV: production
       # NEXT_PUBLIC_* are also provided at runtime for server components.
@@ -26,6 +27,14 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     expose:
       - "3005" # internal only — reached by cloudflared over the compose network
+    healthcheck:
+      # 127.0.0.1 (not localhost): the app binds IPv4 (HOSTNAME=0.0.0.0), while
+      # localhost resolves to ::1 first in Alpine → connection refused.
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3005/login']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # ── Yjs realtime collaboration server ───────────────────────────────────────
@@ -53,11 +62,13 @@ services:
   # cloudflared shares this compose network, so it resolves app / yjs by name.
   # The token is read from the TUNNEL_TOKEN env var (kept out of the process args).
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.6.1 # pin for reproducibility; bump deliberately
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env.docker}
     depends_on:
-      - app
-      - yjs
+      app:
+        condition: service_healthy
+      yjs:
+        condition: service_healthy
     restart: unless-stopped

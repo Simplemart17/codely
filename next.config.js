@@ -24,6 +24,20 @@ const nextConfig = {
   // Only safe for barrels of independent exports (e.g. lucide-react icons).
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    // Trusted origins for server actions when running behind a proxy/tunnel.
+    // Next already allows same-origin; this appends the public host(s) so the
+    // action Origin/Host check still passes if a forwarded host ever differs.
+    // Comma-separated via SERVER_ACTIONS_ALLOWED_ORIGINS (baked at build time);
+    // a no-op when unset, so local dev is unaffected.
+    ...(process.env.SERVER_ACTIONS_ALLOWED_ORIGINS
+      ? {
+          serverActions: {
+            allowedOrigins: process.env.SERVER_ACTIONS_ALLOWED_ORIGINS.split(',')
+              .map((origin) => origin.trim())
+              .filter(Boolean),
+          },
+        }
+      : {}),
   },
 
   // Performance optimizations
