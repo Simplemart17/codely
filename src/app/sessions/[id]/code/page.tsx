@@ -192,7 +192,9 @@ export default function SessionCodePage() {
   return (
     <div
       className={
-        isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'flex h-screen flex-col bg-background'
+        isFullscreen
+          ? 'fixed inset-0 z-50 flex flex-col bg-background'
+          : 'flex h-screen flex-col bg-background'
       }
     >
       {/* Top Bar */}
@@ -261,8 +263,9 @@ export default function SessionCodePage() {
         </div>
       </div>
 
-      {/* Editor */}
-      <div className="flex-1">
+      {/* Editor — min-h-0 so this flex child stays at viewport height and lets
+          the panels/notes scroll internally instead of growing the page. */}
+      <div className="min-h-0 flex-1">
         <CodingInterface
           sessionId={sessionId}
           initialCode={currentSession.code}
