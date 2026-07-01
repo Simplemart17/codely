@@ -504,65 +504,98 @@ export function CodingInterface({
         </div>
       )}
 
-      {/* Main content area — editor + resizable, repositionable output console.
-          The console docks to the right (horizontal split) or the bottom
-          (vertical split) based on the persisted `consolePosition`. Direction is
-          toggled live (no remount) so the Monaco/CRDT instance is never torn
-          down. Drag the handle to resize; drag it fully closed to hide. */}
-      <div className="min-h-0 flex-1 p-2">
-        <ResizablePanelGroup
-          direction={consolePosition === 'bottom' ? 'vertical' : 'horizontal'}
-          autoSaveId="codely-editor-console"
-        >
-          {/* Code Editor */}
+      {/* Main content area. Outer horizontal split: the editor+console
+          workspace on the left, and an optional docked Instructor Notes column
+          on the right that SHARES horizontal space (shrinks the workspace)
+          rather than overlaying it — so the instructor can keep coding while
+          notes are open. */}
+      <div className="min-h-0 flex-1">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Workspace: editor + resizable, repositionable output console.
+              The console docks right (horizontal split) or bottom (vertical
+              split) based on the persisted `consolePosition`. Direction is
+              toggled live (no remount) so the Monaco/CRDT instance is never
+              torn down. */}
           <ResizablePanel
-            id="editor"
+            id="workspace"
             order={1}
-            defaultSize={62}
-            minSize={25}
+            minSize={30}
             className="min-h-0"
           >
-            <MonacoEditor
-              value={localCode}
-              onChange={handleCodeChange}
-              language={language}
-              readOnly={readOnly}
-              height="100%"
-              onMount={handleEditorMount}
-              collaborative={isCollaborative}
-            />
+            <div className="h-full p-2">
+              <ResizablePanelGroup
+                direction={
+                  consolePosition === 'bottom' ? 'vertical' : 'horizontal'
+                }
+                autoSaveId="codely-editor-console"
+              >
+                {/* Code Editor */}
+                <ResizablePanel
+                  id="editor"
+                  order={1}
+                  defaultSize={62}
+                  minSize={25}
+                  className="min-h-0"
+                >
+                  <MonacoEditor
+                    value={localCode}
+                    onChange={handleCodeChange}
+                    language={language}
+                    readOnly={readOnly}
+                    height="100%"
+                    onMount={handleEditorMount}
+                    collaborative={isCollaborative}
+                  />
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* Output Console — always docked (never collapses to 0) so its
+                    header controls, including the dock-position toggle, stay
+                    reachable. */}
+                <ResizablePanel
+                  id="console"
+                  order={2}
+                  defaultSize={38}
+                  minSize={15}
+                  className="min-h-0 overflow-hidden rounded-lg border border-border"
+                >
+                  <OutputPanel
+                    output={output}
+                    isRunning={isRunning}
+                    onClear={handleClearOutput}
+                  />
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
-
-          {/* Output Console — always docked (never collapses to 0) so its
-              header controls, including the dock-position toggle, stay reachable. */}
-          <ResizablePanel
-            id="console"
-            order={2}
-            defaultSize={38}
-            minSize={15}
-            className="min-h-0 overflow-hidden rounded-lg border border-border"
-          >
-            <OutputPanel
-              output={output}
-              isRunning={isRunning}
-              onClear={handleClearOutput}
-            />
-          </ResizablePanel>
+          {/* Instructor Notes — instructor-only, private (never broadcast).
+              A docked, resizable side column, not an overlay. */}
+          {sessionId && isInstructor && showNotes && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel
+                id="notes"
+                order={2}
+                defaultSize={28}
+                minSize={18}
+                maxSize={45}
+                className="min-h-0"
+              >
+                <div className="h-full py-2 pr-2">
+                  <InstructorNotesPanel
+                    sessionId={sessionId}
+                    language={language}
+                    getCode={getCurrentCode}
+                    onClose={() => setShowNotes(false)}
+                  />
+                </div>
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
-
-      {/* Instructor Notes — instructor-only, private slide-over (never broadcast) */}
-      {sessionId && isInstructor && (
-        <InstructorNotesPanel
-          sessionId={sessionId}
-          language={language}
-          getCode={getCurrentCode}
-          open={showNotes}
-          onOpenChange={setShowNotes}
-        />
-      )}
 
       {/* Status Bar */}
       <div className="flex items-center justify-between border-t border-border bg-muted px-4 py-2 text-xs text-muted-foreground">

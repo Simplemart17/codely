@@ -18,15 +18,9 @@ import {
   MessageCircleQuestion,
   Loader2,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { generateLessonNotes, getLessonNotes } from '@/lib/actions/ai-actions';
 import type { LessonNotes } from '@/lib/ai/lesson-notes';
@@ -35,9 +29,8 @@ import type { Language } from '@/types';
 interface InstructorNotesPanelProps {
   sessionId: string;
   language: Language;
-  /** Controls the slide-over visibility. */
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  /** Closes the docked notes column (toolbar toggle + header button share it). */
+  onClose: () => void;
   /** Pre-fills the topic field (e.g. the session title). */
   defaultTopic?: string;
   /** Returns the current editor code, sent as context for the notes. */
@@ -121,7 +114,7 @@ function NotesView({ notes }: { notes: LessonNotes }) {
       </Section>
 
       <Section icon={ListOrdered} title="Suggested Flow">
-        <ol className="list-decimal space-y-1 pl-5 text-foreground marker:text-primary marker:font-medium">
+        <ol className="list-decimal space-y-1 pl-5 text-foreground marker:font-medium marker:text-primary">
           {notes.suggestedFlow.map((s, i) => (
             <li key={i}>{s}</li>
           ))}
@@ -142,8 +135,7 @@ function NotesView({ notes }: { notes: LessonNotes }) {
 export function InstructorNotesPanel({
   sessionId,
   language,
-  open,
-  onOpenChange,
+  onClose,
   defaultTopic = '',
   getCode,
 }: InstructorNotesPanelProps) {
@@ -195,87 +187,85 @@ export function InstructorNotesPanel({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent
-        side="right"
-        overlay={false}
-        // Pinned reference panel: keep it open while the instructor keeps
-        // coding — only the X button or the toolbar toggle closes it.
-        onInteractOutside={(e) => e.preventDefault()}
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-md lg:max-w-lg"
-      >
-        <SheetHeader className="gap-1 border-b border-border p-4">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <NotebookPen className="size-4 text-primary" />
-            Instructor Notes
-          </SheetTitle>
-          <SheetDescription className="flex items-center gap-1.5 text-xs">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+          <NotebookPen className="size-4 shrink-0 text-primary" />
+          <span className="truncate">Instructor Notes</span>
+          <span className="hidden items-center gap-1 text-xs font-normal text-muted-foreground sm:flex">
             <Lock className="size-3" />
-            Private — only visible to you
-          </SheetDescription>
-        </SheetHeader>
-
-        {/* Topic generator */}
-        <div className="flex gap-2 border-b border-border p-4">
-          <input
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleGenerate();
-            }}
-            placeholder="Lesson topic (e.g. Recursion basics)"
-            className="min-w-0 flex-1 rounded-md border-2 border-input bg-background px-3 py-1.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <Button
-            size="sm"
-            onClick={handleGenerate}
-            disabled={isLoading || !topic.trim()}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="size-3.5" />
-                {notes ? 'Regenerate' : 'Generate'}
-              </>
-            )}
-          </Button>
+            private
+          </span>
         </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onClose}
+          className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+          title="Close notes"
+        >
+          <X className="size-4" />
+        </Button>
+      </div>
 
-        {/* Scrollable notes body — always fits the viewport height */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {isLoading || !hydrated ? (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <Loader2 className="mx-auto size-6 animate-spin text-primary" />
-                <p className="mt-2 text-xs">
-                  {isLoading ? 'Generating teaching notes…' : 'Loading…'}
-                </p>
-              </div>
-            </div>
-          ) : notes ? (
-            <NotesView notes={notes} />
+      {/* Topic generator */}
+      <div className="flex gap-2 border-b border-border p-3">
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleGenerate();
+          }}
+          placeholder="Lesson topic (e.g. Recursion basics)"
+          className="min-w-0 flex-1 rounded-md border-2 border-input bg-background px-3 py-1.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <Button
+          size="sm"
+          onClick={handleGenerate}
+          disabled={isLoading || !topic.trim()}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Generating…
+            </>
           ) : (
-            <div className="flex h-full items-center justify-center text-center text-muted-foreground">
-              <div className="max-w-xs">
-                <NotebookPen className="mx-auto mb-3 size-8 opacity-50" />
-                <p className="text-sm font-medium text-foreground">
-                  No notes yet
-                </p>
-                <p className="mt-1 text-xs">
-                  Enter a lesson topic above and generate private teaching
-                  guidance — talking points, common mistakes, and check
-                  questions.
-                </p>
-              </div>
-            </div>
+            <>
+              <Sparkles className="size-3.5" />
+              {notes ? 'Regenerate' : 'Generate'}
+            </>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </Button>
+      </div>
+
+      {/* Scrollable notes body — always fits the column height */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {isLoading || !hydrated ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <Loader2 className="mx-auto size-6 animate-spin text-primary" />
+              <p className="mt-2 text-xs">
+                {isLoading ? 'Generating teaching notes…' : 'Loading…'}
+              </p>
+            </div>
+          </div>
+        ) : notes ? (
+          <NotesView notes={notes} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-center text-muted-foreground">
+            <div className="max-w-xs">
+              <NotebookPen className="mx-auto mb-3 size-8 opacity-50" />
+              <p className="text-sm font-medium text-foreground">No notes yet</p>
+              <p className="mt-1 text-xs">
+                Enter a lesson topic above and generate private teaching guidance
+                — talking points, common mistakes, and check questions.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
