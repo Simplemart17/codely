@@ -23,6 +23,9 @@
 # self-hosted pyodide runtime (regenerated from node_modules via postinstall)
 /public/pyodide/
 
+# bundled monaco editor workers (regenerated from node_modules via postinstall)
+/public/monaco/
+
 # misc
 .DS_Store
 *.pem
