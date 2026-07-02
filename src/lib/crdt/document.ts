@@ -76,7 +76,7 @@ export class CRDTDocument {
   /**
    * Connect to WebSocket provider for real-time synchronization
    */
-  connect(websocketUrl: string): void {
+  connect(websocketUrl: string, initialContent?: string): void {
     try {
       // Create WebSocket provider
       this.provider = new WebsocketProvider(
@@ -87,7 +87,7 @@ export class CRDTDocument {
 
       // Set up awareness
       this.yawareness = this.provider.awareness;
-      
+
       // Set local user state
       this.yawareness.setLocalStateField('user', {
         id: this.currentUser.id,
@@ -98,10 +98,19 @@ export class CRDTDocument {
 
       // Listen for awareness changes
       this.yawareness.on('change', this.handleAwarenessChange.bind(this));
-      
+
       // Listen for provider events
       this.provider.on('status', this.handleConnectionStatus.bind(this));
-      this.provider.on('sync', this.handleSync.bind(this));
+
+      // Handle initial sync — set content if document is empty after first sync
+      this.provider.on('sync', (isSynced: boolean) => {
+        this.handleSync(isSynced);
+
+        if (isSynced && initialContent && this.ytext.length === 0) {
+          // Document is empty on the server, set initial content
+          this.setContent(initialContent);
+        }
+      });
 
       this.emit('connected', { sessionId: this.sessionId });
     } catch (error) {
@@ -136,16 +145,21 @@ export class CRDTDocument {
     }
 
     try {
-      // Create Monaco binding
+      // MonacoBinding owns local→awareness cursor/selection sync: it writes the
+      // local `selection` field on cursor changes and renders remote
+      // participants' cursors as `yRemoteSelection*` decorations (styled by
+      // use-remote-cursors). We deliberately do NOT add our own cursor listeners
+      // on top of it. Doing so writes a second awareness field on every cursor
+      // change, which re-enters MonacoBinding's decoration render synchronously
+      // and crashes Monaco with "Invoking deltaDecorations recursively could
+      // lead to leaking decorations." The `cursor` field is not used for
+      // rendering, so dropping that extra tracking loses nothing visible.
       this.monacoBinding = new MonacoBinding(
         this.ytext,
         editor.getModel()!,
         new Set([editor]),
         this.yawareness
       );
-
-      // Set up cursor tracking
-      this.setupCursorTracking(editor);
 
       this.emit('editorBound', { editor });
     } catch (error) {
@@ -222,6 +236,14 @@ export class CRDTDocument {
     }
 
     return users;
+  }
+
+  /**
+   * Get the awareness instance (for remote cursor rendering)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getAwareness(): any {
+    return this.yawareness;
   }
 
   /**
@@ -324,48 +346,6 @@ export class CRDTDocument {
    */
   private handleSync(isSynced: boolean): void {
     this.emit('sync', { isSynced });
-  }
-
-  /**
-   * Set up cursor tracking for Monaco editor
-   */
-  private setupCursorTracking(editor: editor.IStandaloneCodeEditor): void {
-    // Track cursor position changes
-    editor.onDidChangeCursorPosition((e) => {
-      const position: CursorPosition = {
-        line: e.position.lineNumber,
-        column: e.position.column
-      };
-
-      // Include selection if present
-      const selection = editor.getSelection();
-      if (selection && !selection.isEmpty()) {
-        position.selection = {
-          startLine: selection.startLineNumber,
-          startColumn: selection.startColumn,
-          endLine: selection.endLineNumber,
-          endColumn: selection.endColumn
-        };
-      }
-
-      this.updateCursor(position);
-    });
-
-    // Track selection changes
-    editor.onDidChangeCursorSelection((e) => {
-      const position: CursorPosition = {
-        line: e.selection.positionLineNumber,
-        column: e.selection.positionColumn,
-        selection: {
-          startLine: e.selection.startLineNumber,
-          startColumn: e.selection.startColumn,
-          endLine: e.selection.endLineNumber,
-          endColumn: e.selection.endColumn
-        }
-      };
-
-      this.updateCursor(position);
-    });
   }
 
   /**

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Interactive Online Coding Education Platform",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -p 3005",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ./src",
@@ -18,9 +18,18 @@
     "test:e2e:ui": "playwright test --ui",
     "analyze": "ANALYZE=true npm run build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "yjs-server": "PORT=3006 node server/yjs-server.mjs",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:check": "tsc -p worker",
+    "dev:collab": "concurrently --names next,yjs --prefix-colors blue,green \"npm run dev\" \"npm run yjs-server\"",
+    "pyodide:copy": "node scripts/copy-pyodide.mjs",
+    "monaco:workers": "node scripts/build-monaco-workers.mjs",
+    "postinstall": "node scripts/copy-pyodide.mjs && node scripts/build-monaco-workers.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.107.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-slot": "^1.2.4",
@@ -33,9 +42,11 @@
     "monaco-editor": "^0.55.1",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
+    "pyodide": "^314.0.1",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-resizable-panels": "^2.1.9",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0",
@@ -46,6 +57,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260701.1",
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
@@ -57,6 +69,8 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "^16.1.6",
     "husky": "^9.1.7",
@@ -68,6 +82,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.1",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.106.0"
   }
 }

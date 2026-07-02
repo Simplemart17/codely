@@ -246,7 +246,7 @@ export class SessionService {
   /**
    * Join a session (add participant)
    */
-  static async joinSession(sessionId: string, userId: string, role: 'INSTRUCTOR' | 'PARTICIPANT' = 'PARTICIPANT'): Promise<SessionParticipant> {
+  static async joinSession(sessionId: string, userId: string, role: 'INSTRUCTOR' | 'LEARNER' = 'LEARNER'): Promise<SessionParticipant> {
     try {
       const supabase = await SupabaseDatabase.getServerClient();
       

@@ -164,7 +164,6 @@ export function CreateSessionForm({ onSuccess, onCancel }: CreateSessionFormProp
             <SelectContent>
               <SelectItem value="JAVASCRIPT">JavaScript</SelectItem>
               <SelectItem value="PYTHON">Python</SelectItem>
-              <SelectItem value="CSHARP">C#</SelectItem>
             </SelectContent>
           </Select>
           {validationErrors.language && (

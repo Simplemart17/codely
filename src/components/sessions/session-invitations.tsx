@@ -13,7 +13,7 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toDate, formatDate } from '@/lib/utils';
 import type { 
   SessionInvitation, 
   CreateInvitationData, 
@@ -284,7 +284,7 @@ interface InvitationCardProps {
 function computeExpiryInfo(expiresAt: Date | undefined) {
   if (!expiresAt) return { isExpired: false, hoursUntilExpiry: 0 };
   const now = Date.now();
-  const expiryTime = new Date(expiresAt).getTime();
+  const expiryTime = toDate(expiresAt).getTime();
   return {
     isExpired: now > expiryTime,
     hoursUntilExpiry: Math.max(0, Math.floor((expiryTime - now) / (1000 * 60 * 60))),
@@ -351,7 +351,7 @@ function InvitationCard({
                 )}
               </div>
               <span>
-                Sent {new Date(invitation.createdAt).toLocaleDateString()}
+                Sent {formatDate(invitation.createdAt)}
               </span>
             </div>
           </div>

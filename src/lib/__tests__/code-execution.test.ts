@@ -1,134 +1,113 @@
 import { CodeExecutionService, codeExecutionService } from '../code-execution';
+import type { Language } from '@/types';
+import { runJavaScriptInBrowser } from '../execution/js-runner';
+import { runPythonInBrowser } from '../execution/py-runner';
+
+// All supported languages run in-browser via Web Workers; mock the runners so
+// we can assert dispatch without a real Worker (jsdom has none).
+jest.mock('../execution/js-runner', () => ({
+  runJavaScriptInBrowser: jest.fn(),
+}));
+jest.mock('../execution/py-runner', () => ({
+  runPythonInBrowser: jest.fn(),
+}));
+
+const mockRunJs = runJavaScriptInBrowser as jest.MockedFunction<
+  typeof runJavaScriptInBrowser
+>;
+const mockRunPy = runPythonInBrowser as jest.MockedFunction<
+  typeof runPythonInBrowser
+>;
 
 describe('CodeExecutionService', () => {
   let service: CodeExecutionService;
 
   beforeEach(() => {
     service = CodeExecutionService.getInstance();
+    mockRunJs.mockReset();
+    mockRunPy.mockReset();
   });
 
-  describe('JavaScript execution', () => {
-    it('should execute console.log statements', async () => {
-      const code = 'console.log("Hello, World!");';
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+  describe('In-browser execution', () => {
+    it('runs JavaScript in the browser', async () => {
+      mockRunJs.mockResolvedValueOnce({
+        success: true,
+        output: 'Hello, World!',
+        streams: [{ type: 'stdout', content: 'Hello, World!' }],
+        executionTime: 5,
+      });
 
+      const result = await service.executeCode(
+        'console.log("Hello, World!");',
+        'JAVASCRIPT'
+      );
+
+      expect(mockRunJs).toHaveBeenCalledWith(
+        'console.log("Hello, World!");',
+        expect.any(Number)
+      );
+      expect(mockRunPy).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, World!');
-      expect(result.executionTime).toBeGreaterThan(0);
+      expect(result.output).toBe('Hello, World!');
+      expect(result.streams).toEqual([
+        { type: 'stdout', content: 'Hello, World!' },
+      ]);
     });
 
-    it('should handle function definitions', async () => {
-      const code = `
-        function greet(name) {
-          return "Hello, " + name;
-        }
-      `;
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+    it('runs Python in the browser', async () => {
+      mockRunPy.mockResolvedValueOnce({
+        success: true,
+        output: 'Hello',
+        streams: [{ type: 'stdout', content: 'Hello' }],
+        executionTime: 9,
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Function defined successfully');
+      const result = await service.executeCode('print("Hello")', 'PYTHON');
+
+      expect(mockRunPy).toHaveBeenCalledWith('print("Hello")', undefined);
+      expect(mockRunJs).not.toHaveBeenCalled();
+      expect(result.output).toBe('Hello');
     });
 
-    it('should detect reference errors', async () => {
-      const code = 'console.log(undefinedVariable);';
-      const result = await service.executeCode(code, 'JAVASCRIPT');
+    it('passes a custom timeout through to the JS runner', async () => {
+      mockRunJs.mockResolvedValueOnce({
+        success: true,
+        output: '',
+        streams: [],
+        executionTime: 1,
+      });
+
+      await service.executeCode('1 + 1', 'JAVASCRIPT', { timeout: 5000 });
+
+      expect(mockRunJs).toHaveBeenCalledWith('1 + 1', 5000);
+    });
+
+    it('surfaces a failed run with its captured streams', async () => {
+      mockRunPy.mockResolvedValueOnce({
+        success: false,
+        output: 'before crash',
+        streams: [{ type: 'stdout', content: 'before crash' }],
+        error: 'Traceback ... ZeroDivisionError',
+        executionTime: 7,
+      });
+
+      const result = await service.executeCode('1/0', 'PYTHON');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('ReferenceError');
-    });
-
-    it('should handle multiple console.log statements', async () => {
-      const code = `
-        console.log("First line");
-        console.log("Second line");
-      `;
-      const result = await service.executeCode(code, 'JAVASCRIPT');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('First line');
-      expect(result.output).toContain('Second line');
+      expect(result.error).toContain('ZeroDivisionError');
+      expect(result.streams).toEqual([
+        { type: 'stdout', content: 'before crash' },
+      ]);
     });
   });
 
-  describe('Python execution', () => {
-    it('should execute print statements', async () => {
-      const code = 'print("Hello, Python!")';
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, Python!');
-    });
-
-    it('should handle function definitions', async () => {
-      const code = `
-def greet(name):
-    return f"Hello, {name}"
-      `;
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Function defined successfully');
-    });
-
-    it('should detect syntax errors', async () => {
-      const code = 'if True\n    print("Missing colon")';
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('SyntaxError');
-    });
-
-    it('should handle multiple print statements', async () => {
-      const code = `
-print("First line")
-print("Second line")
-      `;
-      const result = await service.executeCode(code, 'PYTHON');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('First line');
-      expect(result.output).toContain('Second line');
-    });
-  });
-
-  describe('C# execution', () => {
-    it('should execute Console.WriteLine statements', async () => {
-      const code = 'Console.WriteLine("Hello, C#!");';
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Hello, C#!');
-    });
-
-    it('should handle class and method definitions', async () => {
-      const code = `
-class Program {
-    static void Main() {
-        Console.WriteLine("Hello World");
-    }
-}
-      `;
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('Code compiled and executed successfully');
-    });
-
-    it('should detect missing semicolons', async () => {
-      const code = 'string message = "Hello"';
-      const result = await service.executeCode(code, 'CSHARP');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('CS1002');
-    });
-  });
-
-  describe('Error handling', () => {
+  describe('Input validation', () => {
     it('should handle empty code', async () => {
       const result = await service.executeCode('', 'JAVASCRIPT');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
+      expect(mockRunJs).not.toHaveBeenCalled();
     });
 
     it('should handle whitespace-only code', async () => {
@@ -136,14 +115,19 @@ class Program {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('No code to execute');
+      expect(mockRunJs).not.toHaveBeenCalled();
     });
 
     it('should handle unsupported language', async () => {
-      // @ts-expect-error Testing unsupported language
-      const result = await service.executeCode('print("test")', 'UNSUPPORTED');
+      const result = await service.executeCode(
+        'print("test")',
+        'UNSUPPORTED' as Language
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unsupported language');
+      expect(mockRunJs).not.toHaveBeenCalled();
+      expect(mockRunPy).not.toHaveBeenCalled();
     });
   });
 
@@ -170,21 +154,6 @@ print("unformatted")
 
       expect(formatted).toContain('def test():');
       expect(formatted).toContain('  print("unformatted")');
-    });
-
-    it('should format C# code', async () => {
-      const code = `
-class Test{
-public void Method(){
-Console.WriteLine("test");
-}
-}
-      `;
-      const formatted = await service.formatCode(code, 'CSHARP');
-
-      expect(formatted).toContain('class Test {');
-      expect(formatted).toContain('  public void Method() {');
-      expect(formatted).toContain('    Console.WriteLine("test");');
     });
 
     it('should handle empty lines in formatting', async () => {
@@ -214,23 +183,6 @@ function test() {
     it('should use the exported singleton', () => {
       const instance = CodeExecutionService.getInstance();
       expect(codeExecutionService).toBe(instance);
-    });
-  });
-
-  describe('Execution options', () => {
-    it('should respect timeout option', async () => {
-      const code = 'console.log("test");';
-      const result = await service.executeCode(code, 'JAVASCRIPT', { timeout: 5000 });
-
-      expect(result.success).toBe(true);
-      expect(result.executionTime).toBeLessThan(5000);
-    });
-
-    it('should handle memory limit option', async () => {
-      const code = 'console.log("test");';
-      const result = await service.executeCode(code, 'JAVASCRIPT', { memoryLimit: 128 });
-
-      expect(result.success).toBe(true);
     });
   });
 });

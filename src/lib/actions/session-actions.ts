@@ -10,7 +10,7 @@ import type { ActionResult } from './user-actions';
 const CreateSessionSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   description: z.string().max(500).optional(),
-  language: z.enum(['JAVASCRIPT', 'PYTHON', 'CSHARP'] as const),
+  language: z.enum(['JAVASCRIPT', 'PYTHON'] as const),
   maxParticipants: z.number().min(2).max(50).default(10),
   isPublic: z.boolean().default(false),
 });
@@ -19,7 +19,7 @@ const UpdateSessionSchema = z.object({
   sessionId: z.string().uuid(),
   title: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
-  language: z.enum(['JAVASCRIPT', 'PYTHON', 'CSHARP'] as const).optional(),
+  language: z.enum(['JAVASCRIPT', 'PYTHON'] as const).optional(),
   status: z.enum(['ACTIVE', 'PAUSED', 'ENDED'] as const).optional(),
   maxParticipants: z.number().min(2).max(50).optional(),
   isPublic: z.boolean().optional(),
@@ -84,6 +84,18 @@ export async function updateSession(
 
     const { sessionId, ...updates } = parsed.data;
 
+    // Verify user is the session instructor
+    const existing = await SessionService.getSessionById(sessionId);
+    if (!existing) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (existing.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'Only the session instructor can update this session',
+      };
+    }
+
     const session = await SessionService.updateSession(sessionId, {
       title: updates.title,
       description: updates.description,
@@ -107,6 +119,18 @@ export async function deleteSession(
     const user = await getAuthenticatedUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    // Verify user is the session instructor
+    const existing = await SessionService.getSessionById(sessionId);
+    if (!existing) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (existing.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'Only the session instructor can delete this session',
+      };
+    }
+
     await SessionService.deleteSession(sessionId);
     return { success: true, data: undefined };
   } catch {
@@ -120,6 +144,18 @@ export async function joinSession(
   try {
     const user = await getAuthenticatedUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+
+    // Verify session exists and is active
+    const session = await SessionService.getSessionById(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+    if (session.status !== 'ACTIVE') {
+      return {
+        success: false,
+        error: 'This session is no longer active and cannot be joined',
+      };
+    }
 
     const participant = await SessionService.joinSession(sessionId, user.id);
     return { success: true, data: participant };

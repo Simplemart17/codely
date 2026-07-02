@@ -20,6 +20,12 @@
 # production
 /build
 
+# self-hosted pyodide runtime (regenerated from node_modules via postinstall)
+/public/pyodide/
+
+# bundled monaco editor workers (regenerated from node_modules via postinstall)
+/public/monaco/
+
 # misc
 .DS_Store
 *.pem
@@ -32,9 +38,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but keep the placeholder templates in version control
+!.env.example
+!.env.docker.example
 
 # vercel
 .vercel
+
+# cloudflare wrangler local state
+.wrangler
+.open-next
 
 # typescript
 *.tsbuildinfo

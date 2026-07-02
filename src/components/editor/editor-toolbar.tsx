@@ -16,12 +16,14 @@ interface EditorToolbarProps {
   isSaving?: boolean;
   canChangeLanguage?: boolean;
   showRunButton?: boolean;
+  showNotesToggle?: boolean;
+  notesShown?: boolean;
+  onToggleNotes?: () => void;
 }
 
 const LANGUAGE_OPTIONS = [
   { value: 'JAVASCRIPT', label: 'JavaScript', icon: '🟨' },
   { value: 'PYTHON', label: 'Python', icon: '🐍' },
-  { value: 'CSHARP', label: 'C#', icon: '🔷' },
 ] as const;
 
 export function EditorToolbar({
@@ -34,8 +36,11 @@ export function EditorToolbar({
   isSaving = false,
   canChangeLanguage = true,
   showRunButton = true,
+  showNotesToggle = false,
+  notesShown = false,
+  onToggleNotes,
 }: EditorToolbarProps) {
-  const { user } = useUserStore();
+  const { user, updatePreferences } = useUserStore();
   const [showSettings, setShowSettings] = useState(false);
 
   const currentLanguage = LANGUAGE_OPTIONS.find(lang => lang.value === language);
@@ -135,6 +140,17 @@ export function EditorToolbar({
               >
                 ✨ Format
               </Button>
+
+              {showNotesToggle && (
+                <Button
+                  size="sm"
+                  variant={notesShown ? 'default' : 'outline'}
+                  onClick={onToggleNotes}
+                  title="AI lesson notes (only visible to you)"
+                >
+                  📝 Notes
+                </Button>
+              )}
             </div>
           </div>
 
@@ -195,23 +211,35 @@ export function EditorToolbar({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div>
                 <label className="block text-muted-foreground mb-1">Font Size</label>
-                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
-                  <option value="12">12px</option>
-                  <option value="14" selected>14px</option>
-                  <option value="16">16px</option>
-                  <option value="18">18px</option>
+                <select
+                  value={user?.preferences?.fontSize || 14}
+                  onChange={(e) => updatePreferences({ fontSize: Number(e.target.value) })}
+                  className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
+                  <option value={12}>12px</option>
+                  <option value={14}>14px</option>
+                  <option value={16}>16px</option>
+                  <option value={18}>18px</option>
                 </select>
               </div>
               <div>
                 <label className="block text-muted-foreground mb-1">Theme</label>
-                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+                <select
+                  value={user?.preferences?.theme || 'dark'}
+                  onChange={(e) => updatePreferences({ theme: e.target.value as 'light' | 'dark' })}
+                  className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                 </select>
               </div>
               <div>
                 <label className="block text-muted-foreground mb-1">Key Bindings</label>
-                <select className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+                <select
+                  value={user?.preferences?.keyBindings || 'vscode'}
+                  onChange={(e) => updatePreferences({ keyBindings: e.target.value as 'vscode' | 'vim' | 'emacs' })}
+                  className="w-full text-xs border-2 border-input bg-background text-foreground rounded px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
                   <option value="vscode">VS Code</option>
                   <option value="vim">Vim</option>
                   <option value="emacs">Emacs</option>

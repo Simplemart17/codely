@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Codely - Collaborative Coding Education Platform",
   description:
-    "Real-time collaborative coding education platform supporting JavaScript, Python, and C#",
+    "Real-time collaborative coding education platform supporting JavaScript and Python",
 };
 
 export default function RootLayout({
@@ -40,7 +40,9 @@ export default function RootLayout({
         >
           <TooltipProvider>
             {children}
-            <Analytics />
+            {/* debug=false silences the dev-only "[Vercel Web Analytics]"
+                console logs; analytics still no-ops in development. */}
+            <Analytics debug={false} />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>

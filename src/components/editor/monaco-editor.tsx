@@ -1,25 +1,63 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import Editor, {
+  loader,
+  type Monaco,
+  OnMount,
+  OnChange,
+} from '@monaco-editor/react';
+import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
 
+// CRITICAL: Tell @monaco-editor/react to use the local monaco-editor npm
+// package instead of loading from CDN. This ensures y-monaco's MonacoBinding
+// and the Editor share the same Monaco instance, enabling real-time CRDT sync.
+// The promise lets us delay rendering the Editor until the loader is ready.
+let monacoLoaderReady: Promise<void> | null = null;
+if (typeof window !== 'undefined') {
+  // Monaco runs its language services in Web Workers. Without a getWorker it
+  // warns "You must define a function MonacoEnvironment.getWorker" and falls
+  // back to the main thread (which can freeze the UI). We load pre-bundled,
+  // self-contained workers from /public/monaco (built from node_modules by
+  // scripts/build-monaco-workers.mjs on postinstall). Serving them as static
+  // files means Turbopack never processes them — importantly it can't inject its
+  // React Fast Refresh helper (`_s`) into the worker, which otherwise crashed the
+  // TypeScript worker in dev ("TypeError: _s is not a function"). These are
+  // classic workers, so no `{ type: 'module' }`. We only ship JavaScript/
+  // TypeScript (Python uses main-thread basic-languages).
+  self.MonacoEnvironment = {
+    getWorker(_workerId: string, label: string) {
+      if (label === 'typescript' || label === 'javascript') {
+        return new Worker('/monaco/ts.worker.js');
+      }
+      return new Worker('/monaco/editor.worker.js');
+    },
+  };
+
+  monacoLoaderReady = import('monaco-editor').then(monaco => {
+    loader.config({ monaco });
+  });
+}
+
 interface MonacoEditorProps {
+  /** Editor value — ignored when `collaborative` is true (Yjs manages content) */
   value: string;
+  /** Change callback — ignored when `collaborative` is true */
   onChange: (value: string) => void;
   language: Language;
   readOnly?: boolean;
   height?: string | number;
   theme?: 'light' | 'dark';
-  onMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void;
+  onMount?: (editor: MonacoEditorNS.IStandaloneCodeEditor) => void;
+  /** When true, Yjs CRDT manages content; value/onChange are ignored */
+  collaborative?: boolean;
 }
 
 const LANGUAGE_MAP: Record<Language, string> = {
   JAVASCRIPT: 'javascript',
   PYTHON: 'python',
-  CSHARP: 'csharp',
 };
 
 const STARTER_TEMPLATES: Record<Language, string> = {
@@ -32,19 +70,6 @@ const STARTER_TEMPLATES: Record<Language, string> = {
 # Start writing your code here
 
 `,
-
-  CSHARP: `// C# coding session
-// Start writing your code here
-
-using System;
-
-class Program
-{
-    static void Main()
-    {
-        // Your code here
-    }
-}`,
 };
 
 export function MonacoEditor({
@@ -55,23 +80,39 @@ export function MonacoEditor({
   height = '400px',
   theme,
   onMount,
+  collaborative = false,
 }: MonacoEditorProps) {
   const { user } = useUserStore();
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isLoaderReady, setIsLoaderReady] = useState(!monacoLoaderReady);
+
+  // Wait for the local monaco-editor package to be configured before rendering
+  useEffect(() => {
+    if (monacoLoaderReady) {
+      monacoLoaderReady.then(() => setIsLoaderReady(true));
+    }
+  }, []);
 
   // Determine theme based on user preferences or prop
-  const editorTheme = theme || user?.preferences?.theme === 'dark' ? 'vs-dark' : 'vs-light';
+  const editorTheme =
+    theme || user?.preferences?.theme === 'dark' ? 'vs-dark' : 'vs-light';
 
   // Get Monaco language identifier
   const monacoLanguage = LANGUAGE_MAP[language] || 'javascript';
 
   // Use provided value or minimal starter template if completely empty
-  const editorValue = value || (value === '' ? STARTER_TEMPLATES[language] || '' : '');
+  const editorValue =
+    value || (value === '' ? STARTER_TEMPLATES[language] || '' : '');
 
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
+  const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
+    monacoRef.current = monacoInstance;
     setIsEditorReady(true);
+
+    // Alias for readability below
+    const monaco = monacoInstance;
 
     // Configure editor options
     editor.updateOptions({
@@ -106,7 +147,8 @@ export function MonacoEditor({
       monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
         target: monaco.languages.typescript.ScriptTarget.ES2020,
         allowNonTsExtensions: true,
-        moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+        moduleResolution:
+          monaco.languages.typescript.ModuleResolutionKind.NodeJs,
         module: monaco.languages.typescript.ModuleKind.CommonJS,
         noEmit: true,
         esModuleInterop: true,
@@ -127,9 +169,12 @@ export function MonacoEditor({
       editor.trigger('keyboard', 'undo', {});
     });
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, () => {
-      editor.trigger('keyboard', 'redo', {});
-    });
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ,
+      () => {
+        editor.trigger('keyboard', 'redo', {});
+      }
+    );
 
     // Call external onMount callback if provided
     if (onMount) {
@@ -137,7 +182,9 @@ export function MonacoEditor({
     }
   };
 
-  const handleEditorChange: OnChange = (value) => {
+  const handleEditorChange: OnChange = value => {
+    // In collaborative mode, Yjs manages content — skip React state updates
+    if (collaborative) return;
     if (value !== undefined) {
       onChange(value);
     }
@@ -154,29 +201,51 @@ export function MonacoEditor({
 
   // Update editor language when language prop changes
   useEffect(() => {
-    if (isEditorReady && editorRef.current) {
+    if (isEditorReady && editorRef.current && monacoRef.current) {
       const model = editorRef.current.getModel();
+      const m = monacoRef.current;
       if (model) {
-        const monacoLanguage = LANGUAGE_MAP[language];
-        // Create a new model with the new language
-        const newModel = monaco.editor.createModel(
-          model.getValue(),
-          monacoLanguage
-        );
-        editorRef.current.setModel(newModel);
+        if (collaborative) {
+          // In collaborative mode, keep the same model (Yjs binding owns it)
+          // Just change the language setting on the existing model
+          m.editor.setModelLanguage(
+            model,
+            LANGUAGE_MAP[language] || 'javascript'
+          );
+        } else {
+          const monacoLanguage = LANGUAGE_MAP[language] || 'javascript';
+          // Create a new model with the new language
+          const newModel = m.editor.createModel(
+            model.getValue(),
+            monacoLanguage
+          );
+          editorRef.current.setModel(newModel);
 
-        // Dispose of the old model to prevent memory leaks
-        model.dispose();
+          // Dispose of the old model to prevent memory leaks
+          model.dispose();
+        }
       }
     }
-  }, [language, isEditorReady]);
+  }, [language, isEditorReady, collaborative]);
+
+  if (!isLoaderReady) {
+    return (
+      <div className="border-border flex h-full w-full items-center justify-center rounded-lg border-2">
+        <div className="text-center">
+          <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-b-2"></div>
+          <p className="text-muted-foreground mt-2">Loading editor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-full border-2 border-border rounded-lg overflow-hidden">
+    <div className="border-border h-full w-full overflow-hidden rounded-lg border-2">
       <Editor
         height={height}
         language={monacoLanguage}
-        value={editorValue}
+        // In collaborative mode, Yjs manages content via MonacoBinding
+        {...(collaborative ? {} : { value: editorValue })}
         theme={editorTheme}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
@@ -206,10 +275,10 @@ export function MonacoEditor({
           wordBasedSuggestions: 'currentDocument',
         }}
         loading={
-          <div className="flex items-center justify-center h-full">
+          <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">Loading editor...</p>
+              <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-b-2"></div>
+              <p className="text-muted-foreground mt-2">Loading editor...</p>
             </div>
           </div>
         }

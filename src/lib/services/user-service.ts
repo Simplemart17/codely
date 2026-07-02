@@ -57,7 +57,9 @@ export class UserService {
       return SupabaseDatabase.transformUser(user as DatabaseUser);
     } catch (error) {
       console.error('Error creating user:', error);
-      throw new Error('Failed to create user');
+      // Re-throw original error so callers (e.g., upsertUser) can
+      // inspect the message for duplicate key handling
+      throw error;
     }
   }
 
@@ -242,15 +244,37 @@ export class UserService {
       const existingUser = await this.getUserById(data.id);
 
       if (existingUser) {
-        // Update existing user with new data
+        // Update existing user with new data — but NEVER touch the role here.
+        // The DB row is the source of truth for role (it drives RLS and the
+        // instructor/learner dashboards). This method runs on every dashboard
+        // load with a role derived from auth metadata, which defaults to
+        // 'LEARNER' when absent — so syncing it would silently downgrade
+        // instructors on login. Role changes go through updateUser / an
+        // explicit admin action, not this implicit login-time upsert.
         return this.updateUser(data.id, {
           name: data.name,
           avatar: data.avatar,
           preferences: data.preferences,
         });
       } else {
-        // Create new user
-        return this.createUser(data);
+        // Create new user — handle race condition where concurrent
+        // requests both see no user and try to create simultaneously
+        try {
+          return await this.createUser(data);
+        } catch (createError) {
+          // If duplicate key error, the user was created by a
+          // concurrent request — fall back to update
+          const message =
+            createError instanceof Error ? createError.message : '';
+          if (message.includes('already exists') || message.includes('duplicate')) {
+            return this.updateUser(data.id, {
+              name: data.name,
+              avatar: data.avatar,
+              preferences: data.preferences,
+            });
+          }
+          throw createError;
+        }
       }
     } catch (error) {
       console.error('Error upserting user:', error);

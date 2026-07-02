@@ -29,7 +29,7 @@ interface OptimizedSessionPageProps {
   initialData?: {
     title: string;
     description: string;
-    language: 'JAVASCRIPT' | 'PYTHON' | 'CSHARP';
+    language: 'JAVASCRIPT' | 'PYTHON';
     code: string;
     participants: Array<{
       id: string;

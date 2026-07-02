@@ -113,10 +113,6 @@ test.describe('Session Creation Flow', () => {
     // Test Python
     await page.selectOption('[data-testid="language-select"]', 'PYTHON');
     await expect(page.locator('[data-testid="language-select"]')).toHaveValue('PYTHON');
-
-    // Test C#
-    await page.selectOption('[data-testid="language-select"]', 'CSHARP');
-    await expect(page.locator('[data-testid="language-select"]')).toHaveValue('CSHARP');
   });
 
   test('should toggle public/private session', async ({ page }) => {

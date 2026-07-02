@@ -1,18 +1,96 @@
+# Production stack: Next.js app + Yjs collaboration server, exposed to the
+# internet through a dedicated Cloudflare Tunnel (no inbound ports opened).
+#
+#   docker compose --env-file .env.docker up -d --build
+#
+# The app's public config (NEXT_PUBLIC_*) is baked into the client bundle at
+# BUILD time, so changing the Supabase or Yjs URL requires a rebuild (--build),
+# not just a restart. Variables below are interpolated from .env.docker.
+
 services:
-  # Next.js Application (Development)
+  # ── Next.js app (standalone) ────────────────────────────────────────────────
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env.local
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set NEXT_PUBLIC_SUPABASE_URL in .env.docker}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.docker}
+        NEXT_PUBLIC_YJS_WEBSOCKET_URL: ${NEXT_PUBLIC_YJS_WEBSOCKET_URL:?set NEXT_PUBLIC_YJS_WEBSOCKET_URL in .env.docker}
+        SERVER_ACTIONS_ALLOWED_ORIGINS: ${SERVER_ACTIONS_ALLOWED_ORIGINS:-}
     environment:
-      - NODE_ENV=development
-      - WATCHPACK_POLLING=true
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+      NODE_ENV: production
+      # NEXT_PUBLIC_* are also provided at runtime for server components.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_YJS_WEBSOCKET_URL: ${NEXT_PUBLIC_YJS_WEBSOCKET_URL}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    expose:
+      - "3005" # internal only — reached by the web proxy over the compose network
+    healthcheck:
+      # 127.0.0.1 (not localhost): the app binds IPv4 (HOSTNAME=0.0.0.0), while
+      # localhost resolves to ::1 first in Alpine → connection refused.
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3005/login']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Yjs realtime collaboration server ───────────────────────────────────────
+  yjs:
+    build:
+      context: .
+      dockerfile: Dockerfile.yjs
+    environment:
+      PORT: "3006"
+    expose:
+      - "3006"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3006/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Edge proxy + maintenance fallback ───────────────────────────────────────
+  # The app hostname points here (http://web:80), not at the app directly. nginx
+  # proxies to the app and automatically serves maintenance/maintenance.html
+  # whenever the app is unreachable (deploy, restart, crash) or when the planned-
+  # maintenance flag file exists. Stays up independently so users always get a
+  # friendly page instead of a raw 502.
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    expose:
+      - "80"
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:80/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  # ── Cloudflare Tunnel ───────────────────────────────────────────────────────
+  # Remotely-managed (token) tunnel. Create the tunnel in the Zero Trust
+  # dashboard and configure its public hostnames there (see DOCKER.md):
+  #   codely.simplemart.dev     -> http://web:80    (proxy + maintenance fallback)
+  #   codely-ws.simplemart.dev  -> http://yjs:3006  (WebSocket, direct)
+  # cloudflared shares this compose network, so it resolves web / yjs by name.
+  # The token is read from the TUNNEL_TOKEN env var (kept out of the process args).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.6.1 # pin for reproducibility; bump deliberately
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env.docker}
+    depends_on:
+      web:
+        condition: service_healthy
+      yjs:
+        condition: service_healthy
+    restart: unless-stopped

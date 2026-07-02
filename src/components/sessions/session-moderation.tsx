@@ -16,7 +16,7 @@ import {
   Clock,
   Activity
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toDate } from '@/lib/utils';
 import { usePermissions, WithPermission } from '@/hooks/use-permissions';
 import { Permission, getRoleDisplayName, getRoleColor } from '@/lib/permissions';
 import type { SessionParticipant, ParticipantRole } from '@/types';
@@ -219,10 +219,13 @@ function ParticipantModerationCard({
     setShowRoleMenu(false);
   };
 
-  const joinedTime = new Date(participant.joinedAt).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const joinedDate = toDate(participant.joinedAt);
+  const joinedTime = isNaN(joinedDate.getTime())
+    ? 'N/A'
+    : joinedDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">

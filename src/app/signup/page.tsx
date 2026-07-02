@@ -12,23 +12,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Eye, EyeOff, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import type { UserRole } from '@/types';
+import { createUser } from '@/lib/actions/user-actions';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('LEARNER');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -43,18 +35,17 @@ export default function SignupPage() {
         email,
         password,
         options: {
-          data: { name, role },
+          data: { name, role: 'LEARNER' },
         },
       });
 
       if (data.user) {
         if (data.user.email_confirmed_at) {
           try {
-            await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, role }),
-            });
+            const result = await createUser({ name, role: 'LEARNER' });
+            if (!result.success) {
+              console.error('Error creating user in database:', result.error);
+            }
           } catch (dbError) {
             console.error('Error creating user in database:', dbError);
           }
@@ -163,21 +154,6 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">I am a...</Label>
-              <Select
-                value={role}
-                onValueChange={(value) => setRole(value as UserRole)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LEARNER">Learner</SelectItem>
-                  <SelectItem value="INSTRUCTOR">Instructor</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Creating account...' : 'Create account'}

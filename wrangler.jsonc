@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codely-maintenance-proxy",
+  "main": "worker/maintenance-proxy.ts",
+  "compatibility_date": "2026-06-01",
+  // Route subrequests (the proxy fetch to ORIGIN_HOST) through Cloudflare's
+  // public edge rather than any same-zone shortcut.
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  // Bundle imported .html as a text module (the maintenance page).
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.html"]
+    }
+  ],
+  // The tunnel hostname the Worker proxies to. Point this at the app's origin
+  // Public Hostname (see MAINTENANCE.md), NOT the public app hostname.
+  "vars": {
+    "ORIGIN_HOST": "origin.simplemart.dev"
+  },
+  // Bind the Worker to the public app hostname as a Workers Custom Domain.
+  // Wrangler provisions the DNS + cert. The existing tunnel CNAME for this
+  // hostname must be removed first (see MAINTENANCE.md).
+  "routes": [
+    {
+      "pattern": "codely.simplemart.dev",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

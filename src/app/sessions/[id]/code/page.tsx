@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,26 +14,60 @@ import {
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { CodingInterface } from '@/components/editor/coding-interface';
+import dynamic from 'next/dynamic';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import type { Language } from '@/types';
-import { ArrowLeft, Maximize2, Minimize2, Users } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2, Square, Users } from 'lucide-react';
+
+// Dynamic import with ssr: false — monaco-editor requires `window`
+const CodingInterface = dynamic(
+  () =>
+    import('@/components/editor/coding-interface').then((m) => ({
+      default: m.CodingInterface,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    ),
+  }
+);
 
 export default function SessionCodePage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.id as string;
 
-  const { currentSession, participants, fetchSession, isLoading, error } =
-    useSessionStore();
+  const {
+    currentSession,
+    participants,
+    fetchSession,
+    updateSession,
+    isFetching,
+    error,
+    clearError,
+  } = useSessionStore();
   const { user } = useUserStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const hasShownError = useRef<string | null>(null);
 
   useEffect(() => {
     if (sessionId) fetchSession(sessionId);
   }, [sessionId, fetchSession]);
+
+  // Show non-fatal errors as toasts instead of nuking the page
+  useEffect(() => {
+    if (error && currentSession && hasShownError.current !== error) {
+      hasShownError.current = error;
+      toast.error(error);
+      clearError();
+    }
+  }, [error, currentSession, clearError]);
 
   const handleCodeChange = (code: string) => {
     console.log('Code changed:', code.length, 'characters');
@@ -45,9 +80,29 @@ export default function SessionCodePage() {
   };
 
   const handleBack = () => router.push(`/sessions/${sessionId}`);
+
+  const handleSessionEnded = useCallback(() => {
+    toast.info('This session has been ended by the instructor.');
+    router.push(`/sessions/${sessionId}`);
+  }, [router, sessionId]);
+
+  const handleEndSession = async () => {
+    if (!sessionId) return;
+    setIsEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'ENDED' });
+      toast.success('Session ended successfully');
+      router.push(`/sessions/${sessionId}`);
+    } catch {
+      toast.error('Failed to end session');
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   const activeParticipants = participants.filter((p) => p.isActive);
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
@@ -60,7 +115,7 @@ export default function SessionCodePage() {
     );
   }
 
-  if (error || !currentSession) {
+  if (!currentSession) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="w-full max-w-md">
@@ -137,7 +192,9 @@ export default function SessionCodePage() {
   return (
     <div
       className={
-        isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'flex h-screen flex-col bg-background'
+        isFullscreen
+          ? 'fixed inset-0 z-50 flex flex-col bg-background'
+          : 'flex h-screen flex-col bg-background'
       }
     >
       {/* Top Bar */}
@@ -176,6 +233,21 @@ export default function SessionCodePage() {
               </div>
             )}
           </div>
+          {isInstructor && (
+            <>
+              <Separator orientation="vertical" className="h-5" />
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleEndSession}
+                disabled={isEnding}
+                className="h-7 text-xs"
+              >
+                <Square className="mr-1 h-3 w-3" />
+                {isEnding ? 'Ending...' : 'End Session'}
+              </Button>
+            </>
+          )}
           <Separator orientation="vertical" className="h-5" />
           <Button
             size="icon"
@@ -191,15 +263,18 @@ export default function SessionCodePage() {
         </div>
       </div>
 
-      {/* Editor */}
-      <div className="flex-1">
+      {/* Editor — min-h-0 so this flex child stays at viewport height and lets
+          the panels/notes scroll internally instead of growing the page. */}
+      <div className="min-h-0 flex-1">
         <CodingInterface
           sessionId={sessionId}
           initialCode={currentSession.code}
           initialLanguage={currentSession.language}
           readOnly={false}
+          isInstructor={isInstructor}
           onCodeChange={handleCodeChange}
           onLanguageChange={handleLanguageChange}
+          onSessionEnded={handleSessionEnded}
         />
       </div>
     </div>

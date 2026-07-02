@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Session, SessionParticipant } from '@/types';
+import { toDate } from '@/lib/utils';
+import { useUserStore } from './user-store';
 import {
   createSession as createSessionAction,
   joinSession as joinSessionAction,
@@ -9,11 +11,54 @@ import {
   deleteSession as deleteSessionAction,
 } from '@/lib/actions/session-actions';
 
+function hydrateSession(s: Record<string, unknown>): Session {
+  return {
+    ...s,
+    createdAt: toDate(s.createdAt),
+    updatedAt: toDate(s.updatedAt),
+  } as Session;
+}
+
+function hydrateParticipant(
+  p: Record<string, unknown>
+): SessionParticipant {
+  return {
+    ...p,
+    joinedAt: toDate(p.joinedAt),
+    leftAt: p.leftAt ? toDate(p.leftAt) : undefined,
+  } as SessionParticipant;
+}
+
+/**
+ * Handle 401 responses by attempting to re-authenticate.
+ * Only logs out if re-authentication also fails.
+ * Returns true if the response was a 401.
+ */
+async function handleAuthError(response: Response): Promise<boolean> {
+  if (response.status === 401) {
+    // Don't immediately logout — try to re-verify auth first.
+    // The token may have been refreshed by middleware but the
+    // API call used stale cookies.
+    try {
+      await useUserStore.getState().loadUser();
+      // If loadUser succeeded, the user is still authenticated.
+      // The original request failed but the session is valid.
+      return true;
+    } catch {
+      // Re-auth also failed — truly unauthenticated
+      useUserStore.getState().logout();
+      return true;
+    }
+  }
+  return false;
+}
+
 interface SessionState {
   // Current session data
   currentSession: Session | null;
   participants: SessionParticipant[];
   isLoading: boolean;
+  isFetching: boolean;
   error: string | null;
 
   // User sessions
@@ -66,6 +111,7 @@ export const useSessionStore = create<SessionState>()(
       currentSession: null,
       participants: [],
       isLoading: false,
+      isFetching: false,
       error: null,
       userSessions: [],
 
@@ -107,12 +153,15 @@ export const useSessionStore = create<SessionState>()(
             throw new Error(result.error);
           }
 
+          const session = hydrateSession(
+            result.data as unknown as Record<string, unknown>
+          );
           set((state) => ({
-            userSessions: [...state.userSessions, result.data],
+            userSessions: [...state.userSessions, session],
             isLoading: false,
           }));
 
-          return result.data;
+          return session;
         } catch (error) {
           set({
             error:
@@ -134,7 +183,10 @@ export const useSessionStore = create<SessionState>()(
             throw new Error(result.error);
           }
 
-          get().addParticipant(result.data);
+          const participant = hydrateParticipant(
+            result.data as unknown as Record<string, unknown>
+          );
+          get().addParticipant(participant);
           set({ isLoading: false });
         } catch (error) {
           set({
@@ -157,7 +209,6 @@ export const useSessionStore = create<SessionState>()(
             throw new Error(result.error);
           }
 
-          // We don't have the userId here directly, so we rely on the caller to manage participant state
           set({ isLoading: false });
         } catch (error) {
           set({
@@ -172,7 +223,7 @@ export const useSessionStore = create<SessionState>()(
       },
 
       updateSession: async (sessionId, updates) => {
-        set({ isLoading: true, error: null });
+        set({ error: null });
         try {
           const result = await updateSessionAction({
             sessionId,
@@ -189,15 +240,17 @@ export const useSessionStore = create<SessionState>()(
             throw new Error(result.error);
           }
 
+          const updated = hydrateSession(
+            result.data as unknown as Record<string, unknown>
+          );
           set((state) => ({
             currentSession:
               state.currentSession?.id === sessionId
-                ? result.data
+                ? updated
                 : state.currentSession,
             userSessions: state.userSessions.map((session) =>
-              session.id === sessionId ? result.data : session
+              session.id === sessionId ? updated : session
             ),
-            isLoading: false,
           }));
         } catch (error) {
           set({
@@ -205,7 +258,6 @@ export const useSessionStore = create<SessionState>()(
               error instanceof Error
                 ? error.message
                 : 'Failed to update session',
-            isLoading: false,
           });
           throw error;
         }
@@ -242,50 +294,65 @@ export const useSessionStore = create<SessionState>()(
         }
       },
 
-      // Data fetching (still via API routes)
+      // Data fetching (via API routes) — uses isFetching to avoid
+      // conflicts with mutation isLoading
       fetchUserSessions: async (_userId, filter = 'all') => {
-        set({ isLoading: true, error: null });
+        set({ isFetching: true, error: null });
         try {
           const response = await fetch(`/api/sessions?filter=${filter}`);
+
+          if (await handleAuthError(response)) return;
 
           if (!response.ok) {
             throw new Error('Failed to fetch sessions');
           }
 
           const { sessions } = await response.json();
-          set({ userSessions: sessions, isLoading: false });
+          const hydrated = (sessions as Record<string, unknown>[]).map(
+            hydrateSession
+          );
+          set({ userSessions: hydrated, isFetching: false });
         } catch (error) {
           set({
             error:
               error instanceof Error
                 ? error.message
                 : 'Failed to fetch sessions',
-            isLoading: false,
+            isFetching: false,
           });
-          throw error;
         }
       },
 
       fetchSession: async (sessionId) => {
-        set({ isLoading: true, error: null });
+        set({ isFetching: true, error: null });
         try {
           const response = await fetch(`/api/sessions/${sessionId}`);
+
+          if (await handleAuthError(response)) return;
 
           if (!response.ok) {
             throw new Error('Failed to fetch session');
           }
 
-          const { session } = await response.json();
-          set({ currentSession: session, isLoading: false });
+          const { session, participants } = await response.json();
+          const hydratedParticipants = Array.isArray(participants)
+            ? (participants as Record<string, unknown>[]).map(
+                hydrateParticipant
+              )
+            : [];
+          set({
+            currentSession: hydrateSession(session),
+            participants: hydratedParticipants,
+            isFetching: false,
+          });
         } catch (error) {
           set({
             error:
               error instanceof Error
                 ? error.message
                 : 'Failed to fetch session',
-            isLoading: false,
+            isFetching: false,
           });
-          throw error;
         }
       },
 

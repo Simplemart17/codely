@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1
+# Edge reverse proxy + maintenance fallback (see maintenance/nginx.conf).
+FROM nginx:1.27-alpine
+
+COPY maintenance/nginx.conf /etc/nginx/nginx.conf
+COPY maintenance/maintenance.html /usr/share/nginx/html/maintenance.html
+
+EXPOSE 80

@@ -11,7 +11,7 @@ const MonacoEditor = lazy(() =>
 
 interface LazyMonacoEditorProps {
   value: string;
-  language: 'JAVASCRIPT' | 'PYTHON' | 'CSHARP';
+  language: 'JAVASCRIPT' | 'PYTHON';
   onChange: (value: string) => void;
   readOnly?: boolean;
   height?: string;

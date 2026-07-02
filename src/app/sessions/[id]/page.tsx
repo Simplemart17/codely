@@ -18,30 +18,15 @@ import { SessionMetadata } from '@/components/sessions/session-metadata';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { ClientLayout } from '@/components/layout/client-layout';
-import { formatDate } from '@/lib/utils';
 import {
   ArrowLeft,
   Code2,
-  Clock,
-  Users,
-  Globe,
-  Lock,
   Play,
   LogOut,
+  Square,
+  RotateCcw,
 } from 'lucide-react';
-
-function getLanguageLabel(language: string): string {
-  switch (language) {
-    case 'JAVASCRIPT':
-      return 'JavaScript';
-    case 'PYTHON':
-      return 'Python';
-    case 'CSHARP':
-      return 'C#';
-    default:
-      return language;
-  }
-}
+import { toast } from 'sonner';
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -67,12 +52,15 @@ export default function SessionDetailPage() {
     fetchSession,
     joinSession,
     leaveSession,
-    isLoading,
+    updateSession,
+    isFetching,
     error,
   } = useSessionStore();
   const { user } = useUserStore();
 
   const [isJoining, setIsJoining] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [isReopening, setIsReopening] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -102,12 +90,40 @@ export default function SessionDetailPage() {
     }
   };
 
+  const handleEndSession = async () => {
+    if (!user || !sessionId) return;
+    setIsEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'ENDED' });
+      toast.success('Session ended successfully');
+    } catch (err) {
+      console.error('Failed to end session:', err);
+      toast.error('Failed to end session');
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const handleReopenSession = async () => {
+    if (!user || !sessionId) return;
+    setIsReopening(true);
+    try {
+      await updateSession(sessionId, { status: 'ACTIVE' });
+      toast.success('Session reopened successfully');
+    } catch (err) {
+      console.error('Failed to reopen session:', err);
+      toast.error('Failed to reopen session');
+    } finally {
+      setIsReopening(false);
+    }
+  };
+
   const isParticipant =
     user && participants.some((p) => p.userId === user.id && p.isActive);
   const isInstructor = user && currentSession?.instructorId === user.id;
   const activeParticipants = participants.filter((p) => p.isActive);
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <ClientLayout>
         <div className="flex-1 p-6 lg:p-8">
@@ -165,12 +181,34 @@ export default function SessionDetailPage() {
           </Button>
           <div className="flex items-center gap-2">
             {isInstructor ? (
-              <Button
-                onClick={() => router.push(`/sessions/${sessionId}/code`)}
-              >
-                <Code2 className="mr-2 h-4 w-4" />
-                Open Editor
-              </Button>
+              <>
+                <Button
+                  onClick={() => router.push(`/sessions/${sessionId}/code`)}
+                  disabled={currentSession.status !== 'ACTIVE'}
+                >
+                  <Code2 className="mr-2 h-4 w-4" />
+                  Open Editor
+                </Button>
+                {currentSession.status === 'ACTIVE' ? (
+                  <Button
+                    variant="destructive"
+                    onClick={handleEndSession}
+                    disabled={isEnding}
+                  >
+                    <Square className="mr-2 h-4 w-4" />
+                    {isEnding ? 'Ending...' : 'End Session'}
+                  </Button>
+                ) : (
+                  <Button onClick={handleReopenSession} disabled={isReopening}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    {isReopening
+                      ? 'Reopening...'
+                      : currentSession.status === 'ENDED'
+                        ? 'Reopen Session'
+                        : 'Resume Session'}
+                  </Button>
+                )}
+              </>
             ) : isParticipant ? (
               <>
                 <Button
@@ -214,62 +252,6 @@ export default function SessionDetailPage() {
           {/* Main Content */}
           <div className="space-y-6 lg:col-span-2">
             <SessionMetadata session={currentSession} />
-
-            {/* Details Grid */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Session Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Language</p>
-                      <p className="font-medium">
-                        {getLanguageLabel(currentSession.language)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Participants
-                      </p>
-                      <p className="font-medium">
-                        {activeParticipants.length} /{' '}
-                        {currentSession.maxParticipants}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentSession.isPublic ? (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Visibility
-                      </p>
-                      <p className="font-medium">
-                        {currentSession.isPublic ? 'Public' : 'Private'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                      <p className="font-medium">
-                        {formatDate(currentSession.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Code Preview */}
             <Card>

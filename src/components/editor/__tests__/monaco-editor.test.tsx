@@ -2,10 +2,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MonacoEditor } from '../monaco-editor';
 import { useUserStore } from '@/stores/user-store';
 
-// Mock Monaco Editor
+// Mock Monaco Editor. Must export `loader` too: the component calls
+// `loader.config({ monaco })` while configuring the local monaco package, and a
+// missing `loader` makes that throw, leaving the editor stuck in its loading
+// guard (and producing an unhandled promise rejection).
 jest.mock('@monaco-editor/react', () => ({
   __esModule: true,
-  default: ({ onChange, onMount, loading }: { onChange?: (value: string) => void; onMount?: (editor: unknown, monaco: unknown) => void; loading?: React.ReactNode }) => {
+  loader: { config: jest.fn() },
+  default: ({
+    onChange,
+    onMount,
+    loading,
+  }: {
+    onChange?: (value: string) => void;
+    onMount?: (editor: unknown, monaco: unknown) => void;
+    loading?: React.ReactNode;
+  }) => {
     // Simulate editor mount
     setTimeout(() => {
       if (onMount) {
@@ -50,12 +62,14 @@ jest.mock('@monaco-editor/react', () => ({
 // Mock the stores
 jest.mock('@/stores/user-store');
 
-const mockUseUserStore = useUserStore as jest.MockedFunction<typeof useUserStore>;
+const mockUseUserStore = useUserStore as jest.MockedFunction<
+  typeof useUserStore
+>;
 
 describe('MonacoEditor', () => {
   const mockOnChange = jest.fn();
   const mockOnMount = jest.fn();
-  
+
   const mockUser = {
     id: 'user-1',
     email: 'test@example.com',
@@ -89,50 +103,45 @@ describe('MonacoEditor', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the editor with loading state', () => {
+  // The editor renders behind an async loader gate (the local monaco package is
+  // configured before the Editor mounts), so the editor appears after a tick —
+  // queries use `findByTestId` to await it.
+  it('shows the loading state, then renders the editor', async () => {
     render(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="JAVASCRIPT"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="JAVASCRIPT" />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    // Loading guard is shown synchronously before the loader resolves.
     expect(screen.getByText('Loading editor...')).toBeInTheDocument();
+    // Editor appears once the loader is ready.
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
   it('calls onChange when editor content changes', async () => {
     render(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="JAVASCRIPT"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="JAVASCRIPT" />
     );
 
-    const textarea = screen.getByTestId('editor-textarea');
+    const textarea = await screen.findByTestId('editor-textarea');
     fireEvent.change(textarea, { target: { value: 'console.log("test");' } });
 
     expect(mockOnChange).toHaveBeenCalledWith('console.log("test");');
   });
 
-  it('displays default code when value is empty', () => {
+  it('displays default code when value is empty', async () => {
     render(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="JAVASCRIPT"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="JAVASCRIPT" />
     );
 
-    // The component should use default JavaScript code
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
-  it('applies user preferences for theme', () => {
+  it('applies user preferences for theme', async () => {
     mockUseUserStore.mockReturnValue({
-      user: { ...mockUser, preferences: { ...mockUser.preferences, theme: 'dark' } },
+      user: {
+        ...mockUser,
+        preferences: { ...mockUser.preferences, theme: 'dark' },
+      },
       isAuthenticated: true,
       isLoading: false,
       error: null,
@@ -147,39 +156,27 @@ describe('MonacoEditor', () => {
     });
 
     render(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="JAVASCRIPT"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="JAVASCRIPT" />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
-  it('handles different programming languages', () => {
+  it('handles different programming languages', async () => {
     const { rerender } = render(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="PYTHON"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="PYTHON" />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
 
     rerender(
-      <MonacoEditor
-        value=""
-        onChange={mockOnChange}
-        language="CSHARP"
-      />
+      <MonacoEditor value="" onChange={mockOnChange} language="JAVASCRIPT" />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
-  it('supports read-only mode', () => {
+  it('supports read-only mode', async () => {
     render(
       <MonacoEditor
         value="const x = 1;"
@@ -189,7 +186,7 @@ describe('MonacoEditor', () => {
       />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
   it('calls onMount callback when editor is mounted', async () => {
@@ -202,12 +199,15 @@ describe('MonacoEditor', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockOnMount).toHaveBeenCalled();
-    }, { timeout: 500 });
+    await waitFor(
+      () => {
+        expect(mockOnMount).toHaveBeenCalled();
+      },
+      { timeout: 2000 }
+    );
   });
 
-  it('handles custom height prop', () => {
+  it('handles custom height prop', async () => {
     render(
       <MonacoEditor
         value=""
@@ -217,10 +217,10 @@ describe('MonacoEditor', () => {
       />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 
-  it('applies custom theme when provided', () => {
+  it('applies custom theme when provided', async () => {
     render(
       <MonacoEditor
         value=""
@@ -230,6 +230,6 @@ describe('MonacoEditor', () => {
       />
     );
 
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('monaco-editor')).toBeInTheDocument();
   });
 });

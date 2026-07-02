@@ -135,3 +135,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Yjs remote cursor & selection styles ── */
+
+/* Remote user's text selection highlight */
+.yRemoteSelection {
+  opacity: 0.25;
+}
+
+/* Cursor head — rendered by Monaco as an inline span via
+   afterContentClassName or beforeContentClassName */
+.yRemoteSelectionHead {
+  position: relative;
+  border-left: 2px solid currentColor;
+}
+
+/* Name label floating above the remote cursor */
+.yRemoteSelectionHead::after {
+  position: absolute;
+  bottom: 100%;
+  left: -1px;
+  font-size: 0.65rem;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}

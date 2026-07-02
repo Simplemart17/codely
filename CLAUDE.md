@@ -61,7 +61,7 @@ npm run format:check   # Prettier check formatting
 **Middleware** (`middleware.ts`): Supabase SSR middleware for session refresh. Runs on all routes except static assets.
 
 ### Type System
-All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON, CSHARP), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase.
+All core types live in `src/types/index.ts`. Key enums are string unions: `UserRole`, `Language` (JAVASCRIPT, PYTHON), `SessionStatus` (ACTIVE, PAUSED, ENDED), `ParticipantRole`. DB rows use snake_case; app types use camelCase. Exception: AI/SDK structured-output schemas and their inferred types live with their usage in `src/lib/ai/` (e.g. `lesson-notes.ts`) — they require `zod/v4` for the Anthropic SDK's `zodOutputFormat` helper, kept out of `src/types/` so the app-wide `zod` v3 usage is unaffected.
 
 ### Design System
 - shadcn/ui components in `src/components/ui/` (button, card, badge, input, select, dialog, tabs, sidebar, etc.)
@@ -72,6 +72,8 @@ All core types live in `src/types/index.ts`. Key enums are string unions: `UserR
 
 ### Database Tables
 `users`, `sessions`, `session_participants`, `operations`, `session_invitations`, `session_recordings`, `session_snapshots`. Migrations are in `supabase/migrations/`.
+
+All app tables live in a dedicated **`codely`** Postgres schema (not `public`) so the database can be shared with other applications. The schema name is centralized in `src/lib/supabase/constants.ts` (`DB_SCHEMA`) and applied via the Supabase client `db.schema` option and the realtime `postgres_changes` filters. The `codely` schema must be added to the project's API "Exposed schemas" (Dashboard → API, or `[api] schemas` in `supabase/config.toml`) for PostgREST to serve it.
 
 ## Code Style
 - Prettier: single quotes, semicolons, trailing commas (es5), 80 char width, Tailwind class sorting plugin

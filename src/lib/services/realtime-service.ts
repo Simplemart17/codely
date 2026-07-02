@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
+import { DB_SCHEMA } from '@/lib/supabase/constants';
+import type { OutputStream } from '@/lib/code-execution';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface CodeChangeEvent {
@@ -43,6 +45,22 @@ export interface UserLeftEvent {
   userId: string;
 }
 
+export interface SessionStatusChangeEvent {
+  sessionId: string;
+  status: string;
+}
+
+export interface ExecutionOutputEvent {
+  sessionId: string;
+  userId: string;
+  userName: string;
+  language: string;
+  success: boolean;
+  streams: OutputStream[];
+  error?: string;
+  timestamp: Date;
+}
+
 /**
  * Realtime service using Supabase Realtime for collaborative features
  * Replaces Socket.io with Supabase Realtime channels
@@ -68,13 +86,7 @@ export class RealtimeService {
       const channel = this.supabase.channel(channelName);
 
       // Subscribe to presence (user join/leave)
-      channel.on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        console.log('Presence sync:', state);
-      });
-
-      channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
+      channel.on('presence', { event: 'join' }, ({ newPresences }) => {
         newPresences.forEach((presence: Record<string, unknown>) => {
           if (presence.userId !== this.userId) {
             this.triggerUserJoined({
@@ -87,8 +99,7 @@ export class RealtimeService {
         });
       });
 
-      channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
+      channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
         leftPresences.forEach((presence: Record<string, unknown>) => {
           if (presence.userId !== this.userId) {
             this.triggerUserLeft({
@@ -106,10 +117,12 @@ export class RealtimeService {
         }
       });
 
+      // Forward every language change (no self-filter): broadcast is
+      // `self: false`, so we never get our own, and filtering by userId would
+      // drop changes from another connection on the same account. See the
+      // execution-output handler below for the full rationale.
       channel.on('broadcast', { event: 'language-change' }, ({ payload }) => {
-        if (payload.userId !== this.userId) {
-          this.triggerLanguageChange(payload as LanguageChangeEvent);
-        }
+        this.triggerLanguageChange(payload as LanguageChangeEvent);
       });
 
       channel.on('broadcast', { event: 'user-presence' }, ({ payload }) => {
@@ -118,18 +131,38 @@ export class RealtimeService {
         }
       });
 
+      // Execution output is broadcast so every participant sees the same run
+      // result. The runner executes once on the clicker's machine; everyone
+      // else just renders the broadcast (no double execution).
+      //
+      // No self-filter here: Supabase broadcast defaults to `self: false`, so
+      // the sender never receives its own message (it already rendered the
+      // output locally). Filtering by `payload.userId` would additionally drop
+      // runs coming from another connection signed in as the SAME user — e.g.
+      // the same account open in two tabs, or an instructor + learner sharing a
+      // login while testing — which is exactly when output failed to appear on
+      // the other side. Forward every execution-output we receive.
+      channel.on('broadcast', { event: 'execution-output' }, ({ payload }) => {
+        this.triggerExecutionOutput(payload as ExecutionOutputEvent);
+      });
+
       // Subscribe to database changes for session updates
       channel.on(
         'postgres_changes',
         {
           event: 'UPDATE',
-          schema: 'public',
+          schema: DB_SCHEMA,
           table: 'sessions',
           filter: `id=eq.${sessionId}`,
         },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log('Session updated:', payload);
-          // Handle session updates (e.g., code changes from database)
+          const newRecord = payload.new as Record<string, unknown> | undefined;
+          if (newRecord?.status) {
+            this.triggerSessionStatusChange({
+              sessionId,
+              status: newRecord.status as string,
+            });
+          }
         }
       );
 
@@ -138,21 +171,18 @@ export class RealtimeService {
         'postgres_changes',
         {
           event: '*',
-          schema: 'public',
+          schema: DB_SCHEMA,
           table: 'session_participants',
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log('Participant change:', payload);
-          // Handle participant join/leave from database
+        () => {
+          // Handle participant join/leave from database (no-op for now)
         }
       );
 
       // Subscribe to the channel
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to session channel');
-
           // Track presence
           await channel.track({
             userId,
@@ -289,9 +319,43 @@ export class RealtimeService {
   }
 
   /**
+   * Broadcast the result of a code run to other participants so they see the
+   * same output without re-executing the code.
+   */
+  async sendExecutionOutput(result: {
+    language: string;
+    success: boolean;
+    streams: OutputStream[];
+    error?: string;
+  }): Promise<void> {
+    if (!this.sessionId || !this.userId || !this.userName) return;
+
+    const channel = this.channels.get(this.sessionId);
+    if (!channel) return;
+
+    const event: ExecutionOutputEvent = {
+      sessionId: this.sessionId,
+      userId: this.userId,
+      userName: this.userName,
+      language: result.language,
+      success: result.success,
+      streams: result.streams,
+      error: result.error,
+      timestamp: new Date(),
+    };
+
+    await channel.send({
+      type: 'broadcast',
+      event: 'execution-output',
+      payload: event,
+    });
+  }
+
+  /**
    * Update participant status in database
    */
   private async updateParticipantStatus(sessionId: string, userId: string, isActive: boolean): Promise<void> {
+    if (!sessionId || !userId) return;
     try {
       const updateData: Record<string, unknown> = {
         is_active: isActive,
@@ -345,6 +409,8 @@ export class RealtimeService {
   private userPresenceCallbacks: ((event: UserPresenceEvent) => void)[] = [];
   private userJoinedCallbacks: ((event: UserJoinedEvent) => void)[] = [];
   private userLeftCallbacks: ((event: UserLeftEvent) => void)[] = [];
+  private sessionStatusChangeCallbacks: ((event: SessionStatusChangeEvent) => void)[] = [];
+  private executionOutputCallbacks: ((event: ExecutionOutputEvent) => void)[] = [];
 
   // Event listener methods
   onCodeChange(callback: (event: CodeChangeEvent) => void): void {
@@ -367,6 +433,14 @@ export class RealtimeService {
     this.userLeftCallbacks.push(callback);
   }
 
+  onSessionStatusChange(callback: (event: SessionStatusChangeEvent) => void): void {
+    this.sessionStatusChangeCallbacks.push(callback);
+  }
+
+  onExecutionOutput(callback: (event: ExecutionOutputEvent) => void): void {
+    this.executionOutputCallbacks.push(callback);
+  }
+
   // Event trigger methods
   private triggerCodeChange(event: CodeChangeEvent): void {
     this.codeChangeCallbacks.forEach(callback => callback(event));
@@ -386,6 +460,14 @@ export class RealtimeService {
 
   private triggerUserLeft(event: UserLeftEvent): void {
     this.userLeftCallbacks.forEach(callback => callback(event));
+  }
+
+  private triggerSessionStatusChange(event: SessionStatusChangeEvent): void {
+    this.sessionStatusChangeCallbacks.forEach(callback => callback(event));
+  }
+
+  private triggerExecutionOutput(event: ExecutionOutputEvent): void {
+    this.executionOutputCallbacks.forEach(callback => callback(event));
   }
 
   // Remove event listeners
@@ -441,6 +523,28 @@ export class RealtimeService {
       }
     } else {
       this.userLeftCallbacks = [];
+    }
+  }
+
+  offSessionStatusChange(callback?: (event: SessionStatusChangeEvent) => void): void {
+    if (callback) {
+      const index = this.sessionStatusChangeCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.sessionStatusChangeCallbacks.splice(index, 1);
+      }
+    } else {
+      this.sessionStatusChangeCallbacks = [];
+    }
+  }
+
+  offExecutionOutput(callback?: (event: ExecutionOutputEvent) => void): void {
+    if (callback) {
+      const index = this.executionOutputCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.executionOutputCallbacks.splice(index, 1);
+      }
+    } else {
+      this.executionOutputCallbacks = [];
     }
   }
 

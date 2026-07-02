@@ -103,9 +103,9 @@ describe('SessionMetadata', () => {
   it('displays creation date', () => {
     render(<SessionMetadata session={mockSession} />);
 
-    // The component uses toLocaleDateString() — check that a date string is rendered
-    const dateStr = new Date('2024-06-15T12:00:00Z').toLocaleDateString();
-    expect(screen.getByText(`Created: ${dateStr}`)).toBeInTheDocument();
+    // formatDate uses Intl.DateTimeFormat — match partial text
+    expect(screen.getByText(/Created:/)).toBeInTheDocument();
+    expect(screen.getByText(/Jun 15, 2024/)).toBeInTheDocument();
   });
 
   it('handles session without optional metadata', () => {
@@ -130,10 +130,6 @@ describe('SessionMetadata', () => {
     const pythonSession = { ...mockSession, language: 'PYTHON' as const };
     const { rerender } = render(<SessionMetadata session={pythonSession} />);
     expect(screen.getByText('🐍')).toBeInTheDocument();
-
-    const csharpSession = { ...mockSession, language: 'CSHARP' as const };
-    rerender(<SessionMetadata session={csharpSession} />);
-    expect(screen.getByText('🔷')).toBeInTheDocument();
 
     const jsSession = { ...mockSession, language: 'JAVASCRIPT' as const };
     rerender(<SessionMetadata session={jsSession} />);
