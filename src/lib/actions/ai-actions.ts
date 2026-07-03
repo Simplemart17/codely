@@ -48,9 +48,9 @@ export async function generateLessonNotes(
   const { sessionId, topic, language, code, regenerate } = parsed.data;
 
   // Server-side authorization — the client role is not trusted.
-  let user;
+  let userId: string;
   try {
-    user = await assertInstructor(sessionId);
+    userId = await assertInstructor(sessionId);
   } catch (err) {
     if (err instanceof AuthorizationError) {
       return { success: false, error: err.message };
@@ -162,7 +162,7 @@ export async function generateLessonNotes(
       language,
       content: notes,
       model: MODEL,
-      created_by: user.id,
+      created_by: userId,
     },
     { onConflict: 'session_id,topic,language', ignoreDuplicates: !regenerate }
   );

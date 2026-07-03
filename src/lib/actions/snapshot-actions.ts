@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { getUserId } from '@/lib/auth/current-user';
 import { UserService } from '@/lib/services/user-service';
 import { SessionService } from '@/lib/services/session-service';
 import type { ActionResult } from './user-actions';
@@ -23,17 +23,13 @@ export async function createSnapshot(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const userId = await getUserId();
 
-    if (authError || !authUser) {
+    if (!userId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const user = await UserService.getUserById(authUser.id);
+    const user = await UserService.getUserById(userId);
     if (!user) return { success: false, error: 'User not found' };
 
     // Check access

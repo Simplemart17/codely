@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useUserStore } from '@/stores/user-store';
-import { createClient } from '@/lib/supabase/client';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 
@@ -38,27 +37,8 @@ export function ClientLayout({
     };
   }, []);
 
-  // Listen for Supabase auth state changes.
-  // IMPORTANT: Do NOT handle SIGNED_OUT here. The Supabase browser
-  // client can fire SIGNED_OUT spuriously during initialization
-  // (before it checks its own session storage), which causes the
-  // user to be logged out immediately after loading. Explicit logout
-  // is handled in AppSidebar via signOut() + logout().
-  useEffect(() => {
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'TOKEN_REFRESHED') {
-        // Silently re-fetch user data to keep store in sync.
-        useUserStore.getState().loadUser();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+  // Token refresh is handled transparently by Clerk (getToken always returns a
+  // fresh JWT), so there's no Supabase auth-state subscription to maintain here.
 
   if (!showNavigation) {
     return <>{children}</>;
