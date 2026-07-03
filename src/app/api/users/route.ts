@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser } from '@/lib/auth/current-user';
 import { UserService } from '@/lib/services/user-service';
 
 /**
@@ -8,25 +8,19 @@ import { UserService } from '@/lib/services/user-service';
  */
 export async function GET() {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const authUser = await getAuthUser();
 
-    if (authError || !authUser) {
+    if (!authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get or create user in database
+    // Get or create user in database (role stays as-is for existing users)
     const user = await UserService.upsertUser({
       id: authUser.id,
-      email: authUser.email!,
-      name:
-        authUser.user_metadata?.name ||
-        authUser.email!.split('@')[0],
-      role: (authUser.user_metadata?.role?.toUpperCase() || 'LEARNER') as 'INSTRUCTOR' | 'LEARNER',
-      avatar: authUser.user_metadata?.avatar_url,
+      email: authUser.email,
+      name: authUser.name,
+      role: 'LEARNER',
+      avatar: authUser.avatar,
     });
 
     return NextResponse.json({ user });

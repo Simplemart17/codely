@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getUserId } from '@/lib/auth/current-user';
 import { SessionService } from '@/lib/services/session-service';
 
 /**
@@ -10,13 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const userId = await getUserId();
 
-    if (authError || !authUser) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -32,10 +28,7 @@ export async function GET(
     }
 
     // Check if user can access this session
-    const canAccess = await SessionService.canUserAccessSession(
-      id,
-      authUser.id
-    );
+    const canAccess = await SessionService.canUserAccessSession(id, userId);
 
     if (!canAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
