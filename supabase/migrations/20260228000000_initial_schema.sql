@@ -283,11 +283,23 @@ create policy "users_delete" on codely.users
 
 -- ── sessions ───────────────────────────────────────────────────────────────
 -- Only sessions you can access: public, your own, or ones you participate in.
--- The server-side canUserAccessSession 403 is no longer the only gate — the
--- browser talks to PostgREST directly, so private session code must be gated here.
+-- NB: check the row's OWN columns directly (is_public / instructor_id), NOT via
+-- can_access_session(id, ...). That helper re-queries codely.sessions by id, and
+-- as a STABLE SECURITY DEFINER function it does not see a just-inserted row in
+-- its snapshot during INSERT ... RETURNING — which made every create fail with a
+-- 42501 "new row violates row-level security policy". Direct column checks see
+-- the NEW row. can_access_session stays for the child tables (which read the
+-- already-committed parent session, so no self-reference problem there).
 create policy "sessions_select" on codely.sessions
   for select to authenticated using (
-    codely.can_access_session(id, (select auth.jwt()->>'sub'))
+    is_public
+    or instructor_id = (select auth.jwt()->>'sub')
+    or exists (
+      select 1 from codely.session_participants p
+      where p.session_id = id
+        and p.user_id = (select auth.jwt()->>'sub')
+        and p.is_active
+    )
   );
 
 create policy "sessions_insert" on codely.sessions

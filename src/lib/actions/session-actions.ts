@@ -57,7 +57,9 @@ export async function createSession(
     });
 
     return { success: true, data: session };
-  } catch {
+  } catch (error) {
+    // Keep the log (the original silent catch made this bug hard to trace).
+    console.error('Error creating session:', error);
     return { success: false, error: 'Failed to create session' };
   }
 }
