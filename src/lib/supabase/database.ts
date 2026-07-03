@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import type {
   User,
   Session,
@@ -117,13 +116,6 @@ export class SupabaseDatabase {
    */
   static async getServerClient() {
     return await createClient();
-  }
-
-  /**
-   * Get Supabase client (client-side)
-   */
-  static getBrowserClient() {
-    return createBrowserClient();
   }
 
   /**

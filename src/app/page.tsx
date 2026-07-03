@@ -1,16 +1,13 @@
-import { createClient } from '@/lib/supabase/server';
+import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Code2, Users, Zap, BookOpen } from 'lucide-react';
 
 export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await auth();
 
-  if (user) {
+  if (userId) {
     redirect('/dashboard');
   }
 

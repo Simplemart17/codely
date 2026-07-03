@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useClerk } from '@clerk/nextjs';
 import { useUserStore } from '@/stores/user-store';
 import { Button } from '@/components/ui/button';
 import { 
@@ -20,14 +20,14 @@ export function Navigation() {
   const router = useRouter();
   const { user, logout } = useUserStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const supabase = createClient();
+  const { signOut } = useClerk();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-      
+      // Sign out from Clerk
+      await signOut();
+
       // Clear user store
       logout();
       

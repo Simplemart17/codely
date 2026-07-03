@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -20,22 +21,18 @@ export class AuthorizationError extends Error {
  * a learner can fake their role client-side, so any instructor-gated mutation
  * or read must call this first.
  *
- * @returns the authenticated Supabase user when the check passes
+ * @returns the authenticated user's id (Clerk id) when the check passes
  * @throws {AuthorizationError} when unauthenticated, the session is missing,
  *   or the user is not the session's instructor
  */
-export async function assertInstructor(sessionId: string) {
-  const supabase = await createClient();
+export async function assertInstructor(sessionId: string): Promise<string> {
+  const { userId } = await auth();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
+  if (!userId) {
     throw new AuthorizationError('Unauthorized');
   }
 
+  const supabase = await createClient();
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
     .select('instructor_id')
@@ -46,9 +43,9 @@ export async function assertInstructor(sessionId: string) {
     throw new AuthorizationError('Session not found');
   }
 
-  if (session.instructor_id !== user.id) {
+  if (session.instructor_id !== userId) {
     throw new AuthorizationError('Forbidden: instructor only');
   }
 
-  return user;
+  return userId;
 }

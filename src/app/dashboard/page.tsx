@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { ensureUser } from '@/lib/auth/current-user';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -14,17 +14,14 @@ import { ClientLayout } from '@/components/layout/client-layout';
 import { Plus, Users, Monitor } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await ensureUser();
 
   if (!user) {
     redirect('/login');
   }
 
-  const displayName = user.user_metadata?.name || user.email;
-  const userRole = user.user_metadata?.role;
+  const displayName = user.name || user.email;
+  const userRole = user.role;
 
   return (
     <ClientLayout>

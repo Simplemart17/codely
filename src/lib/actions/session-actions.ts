@@ -1,8 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
-import { UserService } from '@/lib/services/user-service';
+import { ensureUser } from '@/lib/auth/current-user';
 import { SessionService } from '@/lib/services/session-service';
 import type { Session, SessionParticipant, Language } from '@/types';
 import type { ActionResult } from './user-actions';
@@ -27,16 +26,9 @@ const UpdateSessionSchema = z.object({
 });
 
 async function getAuthenticatedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !authUser) return null;
-
-  const user = await UserService.getUserById(authUser.id);
-  return user;
+  // Provisions the codely.users row from Clerk on first touch if the webhook
+  // hasn't created it yet, so a brand-new user can create/join sessions.
+  return ensureUser();
 }
 
 export async function createSession(
@@ -65,7 +57,9 @@ export async function createSession(
     });
 
     return { success: true, data: session };
-  } catch {
+  } catch (error) {
+    // Keep the log (the original silent catch made this bug hard to trace).
+    console.error('Error creating session:', error);
     return { success: false, error: 'Failed to create session' };
   }
 }
@@ -154,6 +148,14 @@ export async function joinSession(
       return {
         success: false,
         error: 'This session is no longer active and cannot be joined',
+      };
+    }
+    // Only public sessions are self-joinable; private ones require an
+    // invitation (or you're the instructor). Mirrors the RLS insert policy.
+    if (!session.isPublic && session.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'This session is private. You need an invitation to join.',
       };
     }
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useClerk } from '@clerk/nextjs';
 import { useUserStore } from '@/stores/user-store';
 import {
   Sidebar,
@@ -55,12 +55,12 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, logout } = useUserStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const supabase = createClient();
+  const { signOut } = useClerk();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await supabase.auth.signOut();
+      await signOut();
       logout();
       router.push('/');
     } catch (error) {

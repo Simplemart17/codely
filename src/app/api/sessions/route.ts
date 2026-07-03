@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getUserId } from '@/lib/auth/current-user';
 import { UserService } from '@/lib/services/user-service';
 import { SessionService } from '@/lib/services/session-service';
 import type { Language } from '@/types';
@@ -11,10 +11,9 @@ import type { Language } from '@/types';
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const supabase = await createClient();
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    const userId = await getUserId();
 
-    if (authError || !authUser) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from database to check role
-    const user = await UserService.getUserById(authUser.id);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -83,10 +82,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
-    const supabase = await createClient();
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    const userId = await getUserId();
 
-    if (authError || !authUser) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -94,7 +92,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user from database
-    const user = await UserService.getUserById(authUser.id);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },

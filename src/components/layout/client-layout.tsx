@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useUserStore } from '@/stores/user-store';
-import { createClient } from '@/lib/supabase/client';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 
@@ -16,8 +16,10 @@ export function ClientLayout({
   showNavigation = true,
 }: ClientLayoutProps) {
   const user = useUserStore((s) => s.user);
+  const { user: clerkUser } = useUser();
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const hasLoadedRef = useRef(false);
+  const lastClerkUpdateRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,27 +40,20 @@ export function ClientLayout({
     };
   }, []);
 
-  // Listen for Supabase auth state changes.
-  // IMPORTANT: Do NOT handle SIGNED_OUT here. The Supabase browser
-  // client can fire SIGNED_OUT spuriously during initialization
-  // (before it checks its own session storage), which causes the
-  // user to be logged out immediately after loading. Explicit logout
-  // is handled in AppSidebar via signOut() + logout().
+  // Token refresh is handled transparently by Clerk. But the Zustand store must
+  // still re-sync the app user when the Clerk profile changes (name/email/
+  // avatar), otherwise it shows stale data until a full page reload.
   useEffect(() => {
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'TOKEN_REFRESHED') {
-        // Silently re-fetch user data to keep store in sync.
-        useUserStore.getState().loadUser();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (!clerkUser) return;
+    const updatedAt = clerkUser.updatedAt?.getTime() ?? null;
+    if (
+      lastClerkUpdateRef.current !== null &&
+      updatedAt !== lastClerkUpdateRef.current
+    ) {
+      useUserStore.getState().loadUser();
+    }
+    lastClerkUpdateRef.current = updatedAt;
+  }, [clerkUser]);
 
   if (!showNavigation) {
     return <>{children}</>;
