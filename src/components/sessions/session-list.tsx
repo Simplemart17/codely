@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SessionMetadata } from './session-metadata';
+import { DeleteSessionButton } from './delete-session-button';
 import { useSessionStore } from '@/stores/session-store';
 import { useUserStore } from '@/stores/user-store';
 import { formatDate } from '@/lib/utils';
@@ -209,8 +210,8 @@ export function SessionList({
                     <span>{session.isPublic ? 'Public' : 'Private'}</span>
                   </div>
 
-                  <div className="pt-3 border-t">
-                    <Link href={`/sessions/${session.id}`}>
+                  <div className="pt-3 border-t flex gap-2">
+                    <Link href={`/sessions/${session.id}`} className="flex-1">
                       <Button className="w-full" size="sm">
                         {session.instructorId === user?.id
                           ? 'Manage Session'
@@ -219,6 +220,12 @@ export function SessionList({
                             : 'View'}
                       </Button>
                     </Link>
+                    {session.instructorId === user?.id && (
+                      <DeleteSessionButton
+                        sessionId={session.id}
+                        sessionTitle={session.title}
+                      />
+                    )}
                   </div>
                 </div>
               </CardContent>
