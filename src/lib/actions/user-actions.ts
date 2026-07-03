@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { getUserId, getAuthUser } from '@/lib/auth/current-user';
 import { UserService } from '@/lib/services/user-service';
 import type { User, UserRole } from '@/types';
 
@@ -37,13 +37,8 @@ export async function createUser(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !authUser) {
+    const authUser = await getAuthUser();
+    if (!authUser) {
       return { success: false, error: 'Unauthorized' };
     }
 
@@ -55,7 +50,7 @@ export async function createUser(
 
     const user = await UserService.createUser({
       id: authUser.id,
-      email: authUser.email!,
+      email: authUser.email,
       name: parsed.data.name,
       role: parsed.data.role as UserRole,
       avatar: parsed.data.avatar,
@@ -76,17 +71,12 @@ export async function updateUser(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !authUser) {
+    const userId = await getUserId();
+    if (!userId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const user = await UserService.updateUser(authUser.id, {
+    const user = await UserService.updateUser(userId, {
       name: parsed.data.name,
       role: parsed.data.role as UserRole | undefined,
       avatar: parsed.data.avatar ?? undefined,
