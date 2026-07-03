@@ -253,6 +253,31 @@ $$;
 grant execute on function codely.can_access_session(uuid, text)
   to anon, authenticated, service_role;
 
+-- Active-participant check as its own SECURITY DEFINER function. sessions_select
+-- uses it so it does NOT invoke session_participants' RLS: session_participants
+-- policies read codely.sessions, so if sessions_select read session_participants
+-- through RLS the two would form a cycle and Postgres raises
+-- "infinite recursion detected in policy". Bypassing RLS here breaks it, and
+-- (unlike can_access_session) it does not query codely.sessions, so it's safe to
+-- call while a sessions row is being inserted.
+create or replace function codely.is_active_participant(p_session_id uuid, p_user text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select exists (
+    select 1 from codely.session_participants p
+    where p.session_id = p_session_id
+      and p.user_id = p_user
+      and p.is_active
+  );
+$$;
+
+grant execute on function codely.is_active_participant(uuid, text)
+  to anon, authenticated, service_role;
+
 -- ── users ──────────────────────────────────────────────────────────────────
 -- Read your own profile, plus the profiles of people who share a session you
 -- can access (so participant/instructor names & avatars load) — NOT the whole
@@ -294,12 +319,7 @@ create policy "sessions_select" on codely.sessions
   for select to authenticated using (
     is_public
     or instructor_id = (select auth.jwt()->>'sub')
-    or exists (
-      select 1 from codely.session_participants p
-      where p.session_id = id
-        and p.user_id = (select auth.jwt()->>'sub')
-        and p.is_active
-    )
+    or codely.is_active_participant(id, (select auth.jwt()->>'sub'))
   );
 
 create policy "sessions_insert" on codely.sessions
