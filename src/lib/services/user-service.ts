@@ -12,6 +12,7 @@ export interface CreateUserData {
 
 export interface UpdateUserData {
   name?: string;
+  email?: string;
   role?: UserRole;
   avatar?: string;
   preferences?: Partial<UserPreferences>;
@@ -127,6 +128,7 @@ export class UserService {
       const updateData: Record<string, unknown> = {};
 
       if (data.name !== undefined) updateData.name = data.name;
+      if (data.email !== undefined) updateData.email = data.email;
       if (data.role !== undefined) updateData.role = data.role;
       if (data.avatar !== undefined) updateData.avatar = data.avatar;
       
@@ -251,8 +253,13 @@ export class UserService {
         // 'LEARNER' when absent — so syncing it would silently downgrade
         // instructors on login. Role changes go through updateUser / an
         // explicit admin action, not this implicit login-time upsert.
+        //
+        // Email, unlike role, IS synced: Supabase Auth is authoritative for it
+        // and every caller passes the live auth email, so this keeps the DB row
+        // in step after an email change.
         return this.updateUser(data.id, {
           name: data.name,
+          email: data.email,
           avatar: data.avatar,
           preferences: data.preferences,
         });
@@ -269,6 +276,7 @@ export class UserService {
           if (message.includes('already exists') || message.includes('duplicate')) {
             return this.updateUser(data.id, {
               name: data.name,
+              email: data.email,
               avatar: data.avatar,
               preferences: data.preferences,
             });

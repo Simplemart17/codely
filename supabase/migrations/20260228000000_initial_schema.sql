@@ -29,10 +29,12 @@ $$;
 -- ============================================================================
 -- Table: users
 -- ============================================================================
--- Mirrors auth.users (id is the auth user id). The FK keeps the profile row in
--- sync with the auth account and cascades deletes when the account is removed.
+-- Identity comes from Clerk (third-party auth). `id` holds the Clerk user id
+-- (e.g. "user_2ab..."), which is the `sub` claim of the Clerk-issued JWT that
+-- the RLS policies below match on. There is no FK to auth.users — Clerk users
+-- do not live in Supabase's auth schema.
 create table codely.users (
-  id         uuid primary key references auth.users(id) on delete cascade,
+  id         text primary key,
   email      varchar(255) not null unique,
   name       varchar(255) not null,
   role       varchar(50)  not null default 'LEARNER'
@@ -58,7 +60,7 @@ create table codely.sessions (
   id               uuid primary key default gen_random_uuid(),
   title            varchar(255) not null,
   description      text,
-  instructor_id    uuid not null references codely.users(id) on delete cascade,
+  instructor_id    text not null references codely.users(id) on delete cascade,
   language         varchar(50) not null
                    check (language in ('JAVASCRIPT', 'PYTHON')),
   status           varchar(50) not null default 'ACTIVE'
@@ -84,7 +86,7 @@ create trigger sessions_updated_at
 -- ============================================================================
 create table codely.session_participants (
   id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references codely.users(id) on delete cascade,
+  user_id         text not null references codely.users(id) on delete cascade,
   session_id      uuid not null references codely.sessions(id) on delete cascade,
   role            varchar(50) not null default 'LEARNER'
                   check (role in ('INSTRUCTOR', 'LEARNER', 'OBSERVER')),
@@ -111,7 +113,7 @@ create table codely.session_snapshots (
   description text,
   code        text not null,
   metadata    jsonb not null default '{}'::jsonb,
-  created_by  uuid not null references codely.users(id) on delete cascade,
+  created_by  text not null references codely.users(id) on delete cascade,
   created_at  timestamptz not null default now()
 );
 
@@ -123,8 +125,8 @@ create index idx_session_snapshots_session_id on codely.session_snapshots(sessio
 create table codely.session_invitations (
   id           uuid primary key default gen_random_uuid(),
   session_id   uuid not null references codely.sessions(id) on delete cascade,
-  sender_id    uuid not null references codely.users(id) on delete cascade,
-  recipient_id uuid not null references codely.users(id) on delete cascade,
+  sender_id    text not null references codely.users(id) on delete cascade,
+  recipient_id text not null references codely.users(id) on delete cascade,
   email        varchar(255) not null,
   role         varchar(50) not null default 'LEARNER'
                check (role in ('INSTRUCTOR', 'LEARNER', 'OBSERVER')),
@@ -150,7 +152,7 @@ create trigger session_invitations_updated_at
 create table codely.operations (
   id           uuid primary key default gen_random_uuid(),
   session_id   uuid not null references codely.sessions(id) on delete cascade,
-  user_id      uuid not null references codely.users(id) on delete cascade,
+  user_id      text not null references codely.users(id) on delete cascade,
   type         varchar(50) not null
                check (type in ('INSERT', 'DELETE', 'RETAIN')),
   position     integer not null,
@@ -200,7 +202,7 @@ create table codely.instructor_notes (
              check (language in ('JAVASCRIPT', 'PYTHON')),
   content    jsonb not null,
   model      varchar(100) not null,
-  created_by uuid not null references codely.users(id) on delete cascade,
+  created_by text not null references codely.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   unique (session_id, topic, language)
 );
@@ -225,47 +227,47 @@ create policy "users_select" on codely.users
   for select to authenticated using (true);
 
 create policy "users_insert" on codely.users
-  for insert to authenticated with check (id = auth.uid());
+  for insert to authenticated with check (id = (select auth.jwt()->>'sub'));
 
 create policy "users_update" on codely.users
-  for update to authenticated using (id = auth.uid());
+  for update to authenticated using (id = (select auth.jwt()->>'sub'));
 
 create policy "users_delete" on codely.users
-  for delete to authenticated using (id = auth.uid());
+  for delete to authenticated using (id = (select auth.jwt()->>'sub'));
 
 -- ── sessions ───────────────────────────────────────────────────────────────
 create policy "sessions_select" on codely.sessions
   for select to authenticated using (true);
 
 create policy "sessions_insert" on codely.sessions
-  for insert to authenticated with check (instructor_id = auth.uid());
+  for insert to authenticated with check (instructor_id = (select auth.jwt()->>'sub'));
 
 create policy "sessions_update" on codely.sessions
-  for update to authenticated using (instructor_id = auth.uid());
+  for update to authenticated using (instructor_id = (select auth.jwt()->>'sub'));
 
 create policy "sessions_delete" on codely.sessions
-  for delete to authenticated using (instructor_id = auth.uid());
+  for delete to authenticated using (instructor_id = (select auth.jwt()->>'sub'));
 
 -- ── session_participants ───────────────────────────────────────────────────
 create policy "session_participants_select" on codely.session_participants
   for select to authenticated using (true);
 
 create policy "session_participants_insert" on codely.session_participants
-  for insert to authenticated with check (user_id = auth.uid());
+  for insert to authenticated with check (user_id = (select auth.jwt()->>'sub'));
 
 create policy "session_participants_update" on codely.session_participants
   for update to authenticated using (
-    user_id = auth.uid()
+    user_id = (select auth.jwt()->>'sub')
     or session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
 create policy "session_participants_delete" on codely.session_participants
   for delete to authenticated using (
-    user_id = auth.uid()
+    user_id = (select auth.jwt()->>'sub')
     or session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
@@ -274,34 +276,34 @@ create policy "session_snapshots_select" on codely.session_snapshots
   for select to authenticated using (true);
 
 create policy "session_snapshots_insert" on codely.session_snapshots
-  for insert to authenticated with check (created_by = auth.uid());
+  for insert to authenticated with check (created_by = (select auth.jwt()->>'sub'));
 
 create policy "session_snapshots_delete" on codely.session_snapshots
-  for delete to authenticated using (created_by = auth.uid());
+  for delete to authenticated using (created_by = (select auth.jwt()->>'sub'));
 
 -- ── session_invitations ────────────────────────────────────────────────────
 create policy "session_invitations_select" on codely.session_invitations
   for select to authenticated using (
-    sender_id = auth.uid() or recipient_id = auth.uid()
+    sender_id = (select auth.jwt()->>'sub') or recipient_id = (select auth.jwt()->>'sub')
   );
 
 create policy "session_invitations_insert" on codely.session_invitations
-  for insert to authenticated with check (sender_id = auth.uid());
+  for insert to authenticated with check (sender_id = (select auth.jwt()->>'sub'));
 
 create policy "session_invitations_update" on codely.session_invitations
   for update to authenticated using (
-    sender_id = auth.uid() or recipient_id = auth.uid()
+    sender_id = (select auth.jwt()->>'sub') or recipient_id = (select auth.jwt()->>'sub')
   );
 
 create policy "session_invitations_delete" on codely.session_invitations
-  for delete to authenticated using (sender_id = auth.uid());
+  for delete to authenticated using (sender_id = (select auth.jwt()->>'sub'));
 
 -- ── operations ─────────────────────────────────────────────────────────────
 create policy "operations_select" on codely.operations
   for select to authenticated using (true);
 
 create policy "operations_insert" on codely.operations
-  for insert to authenticated with check (user_id = auth.uid());
+  for insert to authenticated with check (user_id = (select auth.jwt()->>'sub'));
 
 -- ── session_recordings ─────────────────────────────────────────────────────
 create policy "session_recordings_select" on codely.session_recordings
@@ -310,21 +312,21 @@ create policy "session_recordings_select" on codely.session_recordings
 create policy "session_recordings_insert" on codely.session_recordings
   for insert to authenticated with check (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
 create policy "session_recordings_update" on codely.session_recordings
   for update to authenticated using (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
 create policy "session_recordings_delete" on codely.session_recordings
   for delete to authenticated using (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
@@ -334,21 +336,21 @@ create policy "session_recordings_delete" on codely.session_recordings
 create policy "instructor_notes_select" on codely.instructor_notes
   for select to authenticated using (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
 create policy "instructor_notes_insert" on codely.instructor_notes
   for insert to authenticated with check (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 
 create policy "instructor_notes_delete" on codely.instructor_notes
   for delete to authenticated using (
     session_id in (
-      select id from codely.sessions where instructor_id = auth.uid()
+      select id from codely.sessions where instructor_id = (select auth.jwt()->>'sub')
     )
   );
 

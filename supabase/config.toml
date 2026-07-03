@@ -1,0 +1,29 @@
+# Supabase configuration for Codely.
+#
+# Auth is handled by Clerk (third-party auth), NOT Supabase Auth. Supabase here
+# is just the Postgres database + PostgREST; it trusts Clerk-issued JWTs and RLS
+# matches their `sub` claim (see supabase/migrations). There are no Supabase
+# auth emails, templates, or SMTP to configure.
+#
+# `project_id` is this project's ref (from NEXT_PUBLIC_SUPABASE_URL); used by
+# `supabase link` / `supabase config push`.
+project_id = "jdpizndfhlxmihncpbkf"
+
+[api]
+enabled = true
+# Codely lives in its own `codely` schema (see src/lib/supabase/constants.ts).
+# It must be exposed alongside the defaults for PostgREST to serve it.
+schemas = ["public", "graphql_public", "codely"]
+extra_search_path = ["public", "extensions", "codely"]
+max_rows = 1000
+
+# ---------------------------------------------------------------------------
+# Clerk as a third-party auth provider. On the hosted project, add this under
+# Dashboard -> Authentication -> Sign In / Providers -> Third-Party Auth (Clerk),
+# using the automated setup from Clerk's Supabase integration. This block is for
+# local dev (`supabase start`). Replace `domain` with your Clerk Frontend API
+# domain (e.g. from Clerk Dashboard -> API Keys).
+# ---------------------------------------------------------------------------
+[auth.third_party.clerk]
+enabled = true
+domain = "your-instance.clerk.accounts.dev"

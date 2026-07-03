@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { getUserId } from '@/lib/auth/current-user';
 import { UserService } from '@/lib/services/user-service';
 import { SessionService } from '@/lib/services/session-service';
 import type { Session, SessionParticipant, Language } from '@/types';
@@ -27,15 +27,10 @@ const UpdateSessionSchema = z.object({
 });
 
 async function getAuthenticatedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-    error,
-  } = await supabase.auth.getUser();
+  const userId = await getUserId();
+  if (!userId) return null;
 
-  if (error || !authUser) return null;
-
-  const user = await UserService.getUserById(authUser.id);
+  const user = await UserService.getUserById(userId);
   return user;
 }
 
