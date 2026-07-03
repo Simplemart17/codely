@@ -35,7 +35,10 @@ $$;
 -- do not live in Supabase's auth schema.
 create table codely.users (
   id         text primary key,
-  email      varchar(255) not null unique,
+  -- Clerk enforces email uniqueness per instance, so no UNIQUE here. A UNIQUE
+  -- constraint would 500 the login-time upsert on email changes / re-registration
+  -- (new Clerk id, same email) and on multiple email-less users.
+  email      varchar(255) not null,
   name       varchar(255) not null,
   role       varchar(50)  not null default 'LEARNER'
              check (role in ('INSTRUCTOR', 'LEARNER')),
@@ -222,9 +225,52 @@ alter table codely.operations enable row level security;
 alter table codely.session_recordings enable row level security;
 alter table codely.instructor_notes enable row level security;
 
+-- ── Access helper (SECURITY DEFINER to avoid RLS recursion) ─────────────────
+-- True when the given user may access the session: it is public, they own it,
+-- or they are an active participant. Used by the SELECT policies below. Runs as
+-- the definer with an empty search_path so it reads the base tables WITHOUT
+-- re-triggering RLS (a policy that queried these tables directly would recurse).
+-- p_session_id is uuid (session PKs stayed uuid); p_user is text (Clerk id).
+create or replace function codely.can_access_session(p_session_id uuid, p_user text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select exists (
+    select 1 from codely.sessions s
+    where s.id = p_session_id
+      and (s.is_public or s.instructor_id = p_user)
+  ) or exists (
+    select 1 from codely.session_participants p
+    where p.session_id = p_session_id
+      and p.user_id = p_user
+      and p.is_active
+  );
+$$;
+
+grant execute on function codely.can_access_session(uuid, text)
+  to anon, authenticated, service_role;
+
 -- ── users ──────────────────────────────────────────────────────────────────
+-- Read your own profile, plus the profiles of people who share a session you
+-- can access (so participant/instructor names & avatars load) — NOT the whole
+-- user directory (which would leak every account's email).
 create policy "users_select" on codely.users
-  for select to authenticated using (true);
+  for select to authenticated using (
+    id = (select auth.jwt()->>'sub')
+    or exists (
+      select 1 from codely.session_participants p
+      where p.user_id = codely.users.id
+        and codely.can_access_session(p.session_id, (select auth.jwt()->>'sub'))
+    )
+    or exists (
+      select 1 from codely.sessions s
+      where s.instructor_id = codely.users.id
+        and codely.can_access_session(s.id, (select auth.jwt()->>'sub'))
+    )
+  );
 
 create policy "users_insert" on codely.users
   for insert to authenticated with check (id = (select auth.jwt()->>'sub'));
@@ -236,8 +282,13 @@ create policy "users_delete" on codely.users
   for delete to authenticated using (id = (select auth.jwt()->>'sub'));
 
 -- ── sessions ───────────────────────────────────────────────────────────────
+-- Only sessions you can access: public, your own, or ones you participate in.
+-- The server-side canUserAccessSession 403 is no longer the only gate — the
+-- browser talks to PostgREST directly, so private session code must be gated here.
 create policy "sessions_select" on codely.sessions
-  for select to authenticated using (true);
+  for select to authenticated using (
+    codely.can_access_session(id, (select auth.jwt()->>'sub'))
+  );
 
 create policy "sessions_insert" on codely.sessions
   for insert to authenticated with check (instructor_id = (select auth.jwt()->>'sub'));
@@ -250,10 +301,32 @@ create policy "sessions_delete" on codely.sessions
 
 -- ── session_participants ───────────────────────────────────────────────────
 create policy "session_participants_select" on codely.session_participants
-  for select to authenticated using (true);
+  for select to authenticated using (
+    user_id = (select auth.jwt()->>'sub')
+    or codely.can_access_session(session_id, (select auth.jwt()->>'sub'))
+  );
 
+-- You may only add YOURSELF, and only: as the session's instructor (any role),
+-- or as a non-instructor to a PUBLIC session. Blocks self-escalation to
+-- INSTRUCTOR and self-joining private sessions via a direct PostgREST insert.
 create policy "session_participants_insert" on codely.session_participants
-  for insert to authenticated with check (user_id = (select auth.jwt()->>'sub'));
+  for insert to authenticated with check (
+    user_id = (select auth.jwt()->>'sub')
+    and (
+      exists (
+        select 1 from codely.sessions s
+        where s.id = session_id
+          and s.instructor_id = (select auth.jwt()->>'sub')
+      )
+      or (
+        role <> 'INSTRUCTOR'
+        and exists (
+          select 1 from codely.sessions s
+          where s.id = session_id and s.is_public
+        )
+      )
+    )
+  );
 
 create policy "session_participants_update" on codely.session_participants
   for update to authenticated using (
@@ -273,7 +346,9 @@ create policy "session_participants_delete" on codely.session_participants
 
 -- ── session_snapshots ──────────────────────────────────────────────────────
 create policy "session_snapshots_select" on codely.session_snapshots
-  for select to authenticated using (true);
+  for select to authenticated using (
+    codely.can_access_session(session_id, (select auth.jwt()->>'sub'))
+  );
 
 create policy "session_snapshots_insert" on codely.session_snapshots
   for insert to authenticated with check (created_by = (select auth.jwt()->>'sub'));
@@ -300,14 +375,18 @@ create policy "session_invitations_delete" on codely.session_invitations
 
 -- ── operations ─────────────────────────────────────────────────────────────
 create policy "operations_select" on codely.operations
-  for select to authenticated using (true);
+  for select to authenticated using (
+    codely.can_access_session(session_id, (select auth.jwt()->>'sub'))
+  );
 
 create policy "operations_insert" on codely.operations
   for insert to authenticated with check (user_id = (select auth.jwt()->>'sub'));
 
 -- ── session_recordings ─────────────────────────────────────────────────────
 create policy "session_recordings_select" on codely.session_recordings
-  for select to authenticated using (true);
+  for select to authenticated using (
+    is_public or codely.can_access_session(session_id, (select auth.jwt()->>'sub'))
+  );
 
 create policy "session_recordings_insert" on codely.session_recordings
   for insert to authenticated with check (

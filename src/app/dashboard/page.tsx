@@ -1,5 +1,4 @@
-import { getAuthUser } from '@/lib/auth/current-user';
-import { UserService } from '@/lib/services/user-service';
+import { ensureUser } from '@/lib/auth/current-user';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -15,15 +14,14 @@ import { ClientLayout } from '@/components/layout/client-layout';
 import { Plus, Users, Monitor } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const authUser = await getAuthUser();
+  const user = await ensureUser();
 
-  if (!authUser) {
+  if (!user) {
     redirect('/login');
   }
 
-  const dbUser = await UserService.getUserById(authUser.id);
-  const displayName = dbUser?.name || authUser.name || authUser.email;
-  const userRole = dbUser?.role;
+  const displayName = user.name || user.email;
+  const userRole = user.role;
 
   return (
     <ClientLayout>

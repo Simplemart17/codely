@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useUserStore } from '@/stores/user-store';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
@@ -15,8 +16,10 @@ export function ClientLayout({
   showNavigation = true,
 }: ClientLayoutProps) {
   const user = useUserStore((s) => s.user);
+  const { user: clerkUser } = useUser();
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const hasLoadedRef = useRef(false);
+  const lastClerkUpdateRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,8 +40,20 @@ export function ClientLayout({
     };
   }, []);
 
-  // Token refresh is handled transparently by Clerk (getToken always returns a
-  // fresh JWT), so there's no Supabase auth-state subscription to maintain here.
+  // Token refresh is handled transparently by Clerk. But the Zustand store must
+  // still re-sync the app user when the Clerk profile changes (name/email/
+  // avatar), otherwise it shows stale data until a full page reload.
+  useEffect(() => {
+    if (!clerkUser) return;
+    const updatedAt = clerkUser.updatedAt?.getTime() ?? null;
+    if (
+      lastClerkUpdateRef.current !== null &&
+      updatedAt !== lastClerkUpdateRef.current
+    ) {
+      useUserStore.getState().loadUser();
+    }
+    lastClerkUpdateRef.current = updatedAt;
+  }, [clerkUser]);
 
   if (!showNavigation) {
     return <>{children}</>;

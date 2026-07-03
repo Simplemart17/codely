@@ -1,8 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getUserId } from '@/lib/auth/current-user';
-import { UserService } from '@/lib/services/user-service';
+import { ensureUser } from '@/lib/auth/current-user';
 import { SessionService } from '@/lib/services/session-service';
 import type { Session, SessionParticipant, Language } from '@/types';
 import type { ActionResult } from './user-actions';
@@ -27,11 +26,9 @@ const UpdateSessionSchema = z.object({
 });
 
 async function getAuthenticatedUser() {
-  const userId = await getUserId();
-  if (!userId) return null;
-
-  const user = await UserService.getUserById(userId);
-  return user;
+  // Provisions the codely.users row from Clerk on first touch if the webhook
+  // hasn't created it yet, so a brand-new user can create/join sessions.
+  return ensureUser();
 }
 
 export async function createSession(
@@ -149,6 +146,14 @@ export async function joinSession(
       return {
         success: false,
         error: 'This session is no longer active and cannot be joined',
+      };
+    }
+    // Only public sessions are self-joinable; private ones require an
+    // invitation (or you're the instructor). Mirrors the RLS insert policy.
+    if (!session.isPublic && session.instructorId !== user.id) {
+      return {
+        success: false,
+        error: 'This session is private. You need an invitation to join.',
       };
     }
 

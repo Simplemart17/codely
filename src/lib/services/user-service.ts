@@ -254,9 +254,9 @@ export class UserService {
         // instructors on login. Role changes go through updateUser / an
         // explicit admin action, not this implicit login-time upsert.
         //
-        // Email, unlike role, IS synced: Supabase Auth is authoritative for it
-        // and every caller passes the live auth email, so this keeps the DB row
-        // in step after an email change.
+        // Email, unlike role, IS synced: Clerk is authoritative for it and
+        // callers pass the live Clerk email, keeping the DB row in step after an
+        // email change. (codely.users.email is not unique, so this can't 500.)
         return this.updateUser(data.id, {
           name: data.name,
           email: data.email,

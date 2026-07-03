@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth/current-user';
-import { UserService } from '@/lib/services/user-service';
+import { ensureUser } from '@/lib/auth/current-user';
 import { SupabaseDatabase } from '@/lib/supabase/database';
 
 /**
@@ -8,24 +7,15 @@ import { SupabaseDatabase } from '@/lib/supabase/database';
  */
 export async function GET() {
   try {
-    // Verify authentication
-    const authUser = await getAuthUser();
+    // Verify auth + provision the user row if the webhook hasn't yet
+    const user = await ensureUser();
 
-    if (!authUser) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    // Get or create user in database (role stays as-is for existing users)
-    const user = await UserService.upsertUser({
-      id: authUser.id,
-      email: authUser.email,
-      name: authUser.name,
-      role: 'LEARNER',
-      avatar: authUser.avatar,
-    });
 
     // Get user statistics using Supabase
     const supabaseClient = await SupabaseDatabase.getServerClient();

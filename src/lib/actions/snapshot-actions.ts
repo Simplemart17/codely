@@ -1,8 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getUserId } from '@/lib/auth/current-user';
-import { UserService } from '@/lib/services/user-service';
+import { ensureUser } from '@/lib/auth/current-user';
 import { SessionService } from '@/lib/services/session-service';
 import type { ActionResult } from './user-actions';
 
@@ -23,14 +22,10 @@ export async function createSnapshot(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const userId = await getUserId();
-
-    if (!userId) {
+    const user = await ensureUser();
+    if (!user) {
       return { success: false, error: 'Unauthorized' };
     }
-
-    const user = await UserService.getUserById(userId);
-    if (!user) return { success: false, error: 'User not found' };
 
     // Check access
     const canAccess = await SessionService.canUserAccessSession(

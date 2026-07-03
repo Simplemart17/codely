@@ -71,6 +71,7 @@ export class RealtimeService {
   private sessionId: string | null = null;
   private userId: string | null = null;
   private userName: string | null = null;
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Join a session and set up realtime subscriptions
@@ -197,6 +198,15 @@ export class RealtimeService {
       });
 
       this.channels.set(sessionId, channel);
+
+      // Clerk session tokens are short-lived (~60s) and supabase-js only
+      // re-auths the realtime socket on (re)connect. Re-auth periodically so
+      // RLS-gated postgres_changes keep flowing on a long-lived connection.
+      if (!this.tokenRefreshTimer) {
+        this.tokenRefreshTimer = setInterval(() => {
+          void this.supabase.realtime.setAuth();
+        }, 45_000);
+      }
     } catch (error) {
       console.error('Error joining session:', error);
       throw new Error('Failed to join session');
@@ -218,6 +228,12 @@ export class RealtimeService {
         // Unsubscribe from channel
         await this.supabase.removeChannel(channel);
         this.channels.delete(this.sessionId);
+      }
+
+      // Stop refreshing the realtime token once no channels remain.
+      if (this.channels.size === 0 && this.tokenRefreshTimer) {
+        clearInterval(this.tokenRefreshTimer);
+        this.tokenRefreshTimer = null;
       }
 
       // Update participant status in database
