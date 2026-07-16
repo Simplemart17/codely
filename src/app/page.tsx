@@ -51,9 +51,10 @@ export default async function Home() {
           </h1>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            The collaborative coding platform where instructors and learners
-            build together in real-time. JavaScript and Python with
-            instant sync.
+            <span className="font-semibold text-foreground">Codely</span> is the
+            collaborative coding education platform where instructors and
+            learners build together in real-time — write and run JavaScript and
+            Python with instant, conflict-free sync.
           </p>
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
