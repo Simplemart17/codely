@@ -34,7 +34,7 @@ export default async function Home() {
       {/* Hero */}
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden pt-14">
         {/* Grid background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.3)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.3)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.3)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.3)_1px,transparent_1px)] bg-size-[4rem_4rem]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,hsl(var(--background))_70%)]" />
 
         <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
@@ -45,7 +45,7 @@ export default async function Home() {
 
           <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
             Code Together,{' '}
-            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Learn Faster
             </span>
           </h1>
@@ -130,14 +130,19 @@ export default async function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Code2 className="h-4 w-4" />
             <span>Codely</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Collaborative coding education platform
-          </p>
+          <nav className="flex items-center gap-6 text-sm text-muted-foreground">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms of Service
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>
